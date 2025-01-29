@@ -1,35 +1,37 @@
 package ch.epfl.bio410;
 
 import ij.IJ;
+import ij.gui.GenericDialog;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
 
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
 
-	private String folderPath = Paths.get(System.getProperty("user.home")).toString();
-	private String resultPath = Paths.get(System.getProperty("user.home")).toString();
+	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
+	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
 	private String selectedAlgorithm = "automatic roi fitting";
 	private String[] fileList = new String[]{};
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
 	
 	// variables à relier à l'UI
-	public String filetype = "3D"; // 2D ou 3D selon la sélection par l'utilisateur
-	public String algorithme = "roifitting"; // au choix aussi dans l'interface
+	public String filetype = "3D"; // 2D ou 3D selon la sélection par l'utilisateur (TODO: à relier à l'UI)
 
-	// variables
-	public String folderPath; // dossier à analyser
-	public String resultPath; // dossier de sorties pour les résultats
 	public String[] tifList;
 	public String[] filteredlist; // liste des fichiers tiff pertinents
 
-	// FONCTION PRINCIPALE
+
+	/**
+	 * This method is called when the command is run.
+	 */
 	public void run() {
-		
+
+		//////////////////////////////// DIALOG //////////////////////////////////
 		GenericDialog dlg = new GenericDialog("Fluovolt Analysis");
 
 		// Add text explanation
@@ -64,6 +66,10 @@ public class FluovoltAnalysis implements Command {
 		IJ.log("Path to images: " + folderPath);
 		IJ.log("Path to save results: " + resultPath);
 		IJ.log("Selected algorithm: " + selectedAlgorithm);
+
+
+
+		//////////////////////////////// FILE EXTRACTION //////////////////////////////////
 		
 		// récupération de la liste de fichiers dans le dossier input
 		tifList = listfiles(folderPath);
@@ -77,13 +83,19 @@ public class FluovoltAnalysis implements Command {
 		}
 	}
 
+	/**
+	 * This function filters the files in the list according to the filetype.
+	 * This function keeps the valid file names for the intended analysis
+	 * filenames should be like :
+	 * 	experimentatorname_date_dayofculture_objective_staining_drug_wellcoordinates
+	 *  with wellcoordinates being :
+	 * 	2D : 4 characters including '-'
+	 * 	3D : 3 characters, the two firsts being the well coordinates and the last one being a letter for the specific pillar
+	 * @param list
+	 * @param filetype
+	 * @return filtered list of only TIFF files
+	 */
 	public String[] filterfiles(String[] list, String filetype){
-		// this function keeps the valid file names for the intended analysis
-		// filenames should be like :
-		// experimentatorname_date_dayofculture_objective_staining_drug_wellcoordinates
-		// with wellcoordinates being :
-		// 2D : 4 characters including '-'
-		// 3D : 3 characters, the two firsts being the well coordinates and the last one being a letter for the specific pillar
 
 		String[] filtered = new String[0]; // the result array containing the valid filenames at the end of the function
 		String name; // to get the file name without extension, used in the loop
