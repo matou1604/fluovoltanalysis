@@ -1,1 +1,1 @@
-{"class":"ch.epfl.bio410.ProjectCommand","values":{"menuPath":"Plugins>4Dcell>Project Template","type":"org.scijava.command.Command"}}
+{"class":"ch.epfl.bio410.FluovoltAnalysis","values":{"menuPath":"Plugins>4Dcell>Fluovolt Analysis","type":"org.scijava.command.Command"}}
