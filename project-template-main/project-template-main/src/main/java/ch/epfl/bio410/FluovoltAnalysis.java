@@ -11,24 +11,60 @@ import java.util.Objects;
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
 
+	private String folderPath = Paths.get(System.getProperty("user.home")).toString();
+	private String resultPath = Paths.get(System.getProperty("user.home")).toString();
+	private String selectedAlgorithm = "automatic roi fitting";
+	private String[] fileList = new String[]{};
+	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
+	
 	// variables à relier à l'UI
 	public String filetype = "3D"; // 2D ou 3D selon la sélection par l'utilisateur
 	public String algorithme = "roifitting"; // au choix aussi dans l'interface
 
 	// variables
 	public String folderPath; // dossier à analyser
-	public String savePath; // dossier de sorties pour les résultats
+	public String resultPath; // dossier de sorties pour les résultats
 	public String[] tifList;
 	public String[] filteredlist; // liste des fichiers tiff pertinents
 
 	// FONCTION PRINCIPALE
 	public void run() {
-		// récupération des dossiers définis par l'utilisateur
-		folderPath = IJ.getDirectory("Select the folder to analyze");
-		savePath = IJ.getDirectory("Select the output folder");
-		IJ.log(folderPath);
-		IJ.log(savePath); // print pour vérifier
+		
+		GenericDialog dlg = new GenericDialog("Fluovolt Analysis");
 
+		// Add text explanation
+		dlg.addMessage("Welcome to our Plugin! " +
+				"\nPlease provide a folder with all TIFFs of one condition to analyse and this plugin will do the following. " +
+				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
+				"\nResults will given as 3 csvs.");
+
+
+		// Add path entry
+		dlg.addDirectoryField("Path to images", folderPath);
+		// Add result path entry
+		dlg.addDirectoryField("Path to save results", resultPath);
+
+		// Add checkboxes
+		dlg.addRadioButtonGroup("Choose an algorithm:", choices, choices.length, 1, choices[0]);
+
+		dlg.addMessage("______________________________________________________________________________");
+		dlg.addMessage("Note: nomenclature SHOULD be the following:"+
+				"\n experiement_date_day_magnification obj_fluovolt_condition_well.tif"+
+				"\n Example: AK11_070125_D15_20x obj_fluovolt_Basal1_E3d.tif");
+
+		dlg.showDialog();
+		if (dlg.wasCanceled()) return;
+
+		// Get the selected paths
+		folderPath = dlg.getNextString();
+		resultPath = dlg.getNextString();
+		selectedAlgorithm = dlg.getNextRadioButton();
+
+
+		IJ.log("Path to images: " + folderPath);
+		IJ.log("Path to save results: " + resultPath);
+		IJ.log("Selected algorithm: " + selectedAlgorithm);
+		
 		// récupération de la liste de fichiers dans le dossier input
 		tifList = listfiles(folderPath);
         for (String s : tifList) {
