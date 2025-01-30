@@ -3,6 +3,7 @@ package ch.epfl.bio410;
 import ij.IJ;
 import ij.gui.GenericDialog;
 import net.imagej.ImageJ;
+import net.imglib2.algorithm.Algorithm;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 import java.io.File;
@@ -10,20 +11,22 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
 
+
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	private String selectedAlgorithm = "automatic roi fitting";
+	private String selectedAlgorithm = "automatic roi fitting"; //TODO remplacer par algo2D et algo3D
 	private String[] fileList = new String[]{};
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
 	
 	// variables à relier à l'UI
-	public String filetype = "3D"; // 2D ou 3D selon la sélection par l'utilisateur (TODO: à relier à l'UI)
-
-	public String[] tifList;
-	public String[] filteredlist; // liste des fichiers tiff pertinents
+	private String filetype = "2D and 3D"; // values : "2D", "3D" or "2D and 3D" //TODO créer des boutons pour sélectionner les trois boutons
+	private String algo2D = selectedAlgorithm; //TODO créer des boutons pour ça
+	private String algo3D = selectedAlgorithm; //TODO créer des boutons pour ça
+	private String[] filelist;
+	private String[] filteredlist; // liste des fichiers tiff pertinents
 
 
 	/**
@@ -71,17 +74,62 @@ public class FluovoltAnalysis implements Command {
 
 		//////////////////////////////// FILE EXTRACTION //////////////////////////////////
 		
+		runanalysis(folderPath, resultPath, filetype, algo2D, algo3D);
+
+
+	}
+
+	/**
+	 * function for doing all the file sorting and calling the analysis function.
+	 * it does call the analysis function twice in case the 2D and 3D files are both targeted
+	 * once, it gets the files in the folder. twice it sorts them to get only the ones with 2D and 3D nomenclature
+	 * algo2D algo3D variables are used to choose the algorithm for each file type
+	 * output is used to save the analysis function results, and is passed to it
+	 * @param folder
+	 * @param output
+	 * @param filetype
+	 * @param algo2D
+	 * @param algo3D
+	 */
+	public void runanalysis(String folder, String output, String filetype, String algo2D, String algo3D){
 		// récupération de la liste de fichiers dans le dossier input
-		tifList = listfiles(folderPath);
-        for (String s : tifList) {
-            IJ.log(s);
-        }
-		// tri des noms de fichiers en fonction du choix de l'utilisateur
-		filteredlist = filterfiles(tifList, filetype);
-		for (String s : filteredlist){
-			IJ.log(s);
+		filelist = listfiles(folderPath);
+		if (filetype.contains("2D")){
+			// tri des noms de fichiers 2D
+			filteredlist = filterfiles(filelist, "2D");
+			analyze(folder, output, filteredlist, algo2D);
+		}
+		if (filetype.contains("3D")){
+			// tri des noms de fichiers 2D
+			filteredlist = filterfiles(filelist, "3D");
+			analyze(folder, output, filteredlist, algo3D);
 		}
 	}
+
+	/**
+	 * this function runs the adequate macro (selected with the algorithm string) on a listoffiles
+	 * the folder to iterate in is specified in path and the output folder is in outputpath
+	 * @param listoffiles
+	 * @param algorithm
+	 * @param outputpath
+	 * @param path
+	 */
+	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm){
+		IJ.log("");
+		IJ.log("Analysis done with parameters :");
+		IJ.log("input folder = " + path);
+		IJ.log("output folder = " + outputpath);
+		IJ.log("algorithm used = " + algorithm);
+		IJ.log("files analysed :");
+
+		// put the filename printing in the loop to print the filenames only when the analysis is finished
+		for (String s : listoffiles){
+			IJ.log(" - " + s);
+		}
+		return;
+	}
+
+
 
 	/**
 	 * This function filters the files in the list according to the filetype.
@@ -99,28 +147,25 @@ public class FluovoltAnalysis implements Command {
 
 		String[] filtered = new String[0]; // the result array containing the valid filenames at the end of the function
 		String name; // to get the file name without extension, used in the loop
+		IJ.log("");
+		IJ.log("Sorting files...");
 		// d'abord les critères communs à tous les fichiers :
 		for (String s : list) {
 			if (!s.contains(".")){ // si le fichier n'est pas un fichier (n'a pas d'extension)
-				IJ.log(s + " is not a file");
 				continue;
 			}
 			name = s.split("\\.")[0];
-			IJ.log(name);
-			IJ.log(s.split("\\.")[1]);
 			String[] Conditions = name.split("_");
 			if (!s.contains("tif")){ // si le fichier n'est pas un tif
-				IJ.log(s + " filtered by file extension");
 				continue;
 			} else if (Objects.equals(filetype, "2D")){
 				if (!Conditions[Conditions.length-1].contains("-")){
-					IJ.log(s+" has no '-'");
 					continue;
 				} else if (Conditions[Conditions.length-1].length()!=4){
 					IJ.log(s+" doesn't have the correct coordinates synthax");
 					continue;
 				}
-			} else if (filetype=="3D"){
+			} else if (Objects.equals(filetype, "3D")){
 				if (Conditions[Conditions.length-1].contains("-")){
 					IJ.log(s+" has '-'. this is not expected for 3D smartheart tif file names");
 					continue;
