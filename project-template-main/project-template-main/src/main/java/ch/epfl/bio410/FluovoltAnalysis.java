@@ -3,7 +3,7 @@ package ch.epfl.bio410;
 import ij.IJ;
 import ij.gui.GenericDialog;
 import net.imagej.ImageJ;
-import net.imglib2.algorithm.Algorithm;
+//import net.imglib2.algorithm.Algorithm;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 import java.io.File;
@@ -17,19 +17,11 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	private String selectedAlgorithm = "automatic roi fitting"; //TODO remplacer par algo2D et algo3D
-	private String[] fileList = new String[]{};
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
-	
-	// variables à relier à l'UI
-	private String filetype = "2D and 3D"; // values : "2D", "3D" or "2D and 3D" //TODO créer des boutons pour sélectionner les trois boutons
-	private String algo2D = selectedAlgorithm; //TODO créer des boutons pour ça
-	private String algo3D = selectedAlgorithm; //TODO créer des boutons pour ça
-	private String[] filelist;
-	private String[] filteredlist; // liste des fichiers tiff pertinents
+	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
 
 
-	/**
+    /**
 	 * This method is called when the command is run.
 	 */
 	public void run() {
@@ -37,64 +29,62 @@ public class FluovoltAnalysis implements Command {
 		//////////////////////////////// DIALOG //////////////////////////////////
 		GenericDialog dlg = new GenericDialog("Fluovolt Analysis");
 
+		// Interface building
 		// Add text explanation
 		dlg.addMessage("Welcome to our Plugin! " +
 				"\nPlease provide a folder with all TIFFs of one condition to analyse and this plugin will do the following. " +
 				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
 				"\nResults will given as 3 csvs.");
-
-
 		// Add path entry
 		dlg.addDirectoryField("Path to images", folderPath);
 		// Add result path entry
 		dlg.addDirectoryField("Path to save results", resultPath);
-
 		// Add checkboxes
-		dlg.addRadioButtonGroup("Choose an algorithm:", choices, choices.length, 1, choices[0]);
-
+		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices, choices.length, 1, choices[0]);
+		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices, choices.length, 1, choices[2]);
+		dlg.addRadioButtonGroup("Choose the file types:", filetypechoices, filetypechoices.length, 1, filetypechoices[0]);
+		// Add text
 		dlg.addMessage("______________________________________________________________________________");
 		dlg.addMessage("Note: nomenclature SHOULD be the following:"+
 				"\n experiement_date_day_magnification obj_fluovolt_condition_well.tif"+
 				"\n Example: AK11_070125_D15_20x obj_fluovolt_Basal1_E3d.tif");
-
 		dlg.showDialog();
 		if (dlg.wasCanceled()) return;
 
+		// Get interface values
 		// Get the selected paths
 		folderPath = dlg.getNextString();
 		resultPath = dlg.getNextString();
-		selectedAlgorithm = dlg.getNextRadioButton();
+		// Get the selected values
+		String algo3D = dlg.getNextRadioButton();
+        String algo2D = dlg.getNextRadioButton();
+        String filetype = dlg.getNextRadioButton();
 
-
+		// Log selection
 		IJ.log("Path to images: " + folderPath);
 		IJ.log("Path to save results: " + resultPath);
-		IJ.log("Selected algorithm: " + selectedAlgorithm);
+		IJ.log("Selected algorithms: algo3D = " + algo3D + ", algo2D = " + algo2D);
 
 
-
-		//////////////////////////////// FILE EXTRACTION //////////////////////////////////
-		
+		//////////////////////////////// FILE ANALYSIS //////////////////////////////////
 		runanalysis(folderPath, resultPath, filetype, algo2D, algo3D);
-
 
 	}
 
 	/**
-	 * function for doing all the file sorting and calling the analysis function.
-	 * it does call the analysis function twice in case the 2D and 3D files are both targeted
-	 * once, it gets the files in the folder. twice it sorts them to get only the ones with 2D and 3D nomenclature
 	 * algo2D algo3D variables are used to choose the algorithm for each file type
-	 * output is used to save the analysis function results, and is passed to it
-	 * @param folder
-	 * @param output
-	 * @param filetype
-	 * @param algo2D
-	 * @param algo3D
+	 * @param folder folder is the path to the folder containing the tif files
+	 * @param output is used to save the analysis function results, and is passed to it
+	 * @param filetype is used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
+	 * @param algo2D is the algorithm used to analyse 2D acquisitions
+	 * @param algo3D is the algorithm used to analyse 3D acquisitions
 	 */
 	public void runanalysis(String folder, String output, String filetype, String algo2D, String algo3D){
 		// récupération de la liste de fichiers dans le dossier input
-		filelist = listfiles(folderPath);
-		if (filetype.contains("2D")){
+        String[] filelist = listfiles(folderPath);
+        // liste des fichiers tiff pertinents
+        String[] filteredlist;
+        if (filetype.contains("2D")){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "2D");
 			analyze(folder, output, filteredlist, algo2D);
@@ -109,10 +99,10 @@ public class FluovoltAnalysis implements Command {
 	/**
 	 * this function runs the adequate macro (selected with the algorithm string) on a listoffiles
 	 * the folder to iterate in is specified in path and the output folder is in outputpath
-	 * @param listoffiles
-	 * @param algorithm
-	 * @param outputpath
-	 * @param path
+	 * @param listoffiles is the list of files to analyze
+	 * @param algorithm is which macro algorithm to use
+	 * @param outputpath is the path to the output folder to create the csv and graphs
+	 * @param path is the path to the folder containing the files
 	 */
 	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm){
 		IJ.log("");
@@ -126,7 +116,6 @@ public class FluovoltAnalysis implements Command {
 		for (String s : listoffiles){
 			IJ.log(" - " + s);
 		}
-		return;
 	}
 
 
@@ -139,8 +128,8 @@ public class FluovoltAnalysis implements Command {
 	 *  with wellcoordinates being :
 	 * 	2D : 4 characters including '-'
 	 * 	3D : 3 characters, the two firsts being the well coordinates and the last one being a letter for the specific pillar
-	 * @param list
-	 * @param filetype
+	 * @param list is the list of files to sort from
+	 * @param filetype is the expected filetype (used to choose which nomenclature to research)
 	 * @return filtered list of only TIFF files
 	 */
 	public String[] filterfiles(String[] list, String filetype){
@@ -206,7 +195,7 @@ public class FluovoltAnalysis implements Command {
 	 * your integrated development environment (IDE).
 	 *
 	 * @param args whatever, it's ignored
-	 * @throws Exception
+	 * @throws Exception whatever it's doing
 	 */
 
 
