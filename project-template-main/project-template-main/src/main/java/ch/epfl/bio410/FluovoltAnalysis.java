@@ -1,6 +1,7 @@
 package ch.epfl.bio410;
 
 import ij.IJ;
+import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import net.imagej.ImageJ;
 //import net.imglib2.algorithm.Algorithm;
@@ -19,8 +20,9 @@ public class FluovoltAnalysis implements Command {
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
+	private ImagePlus imp;
 
-    /**
+	/**
 	 * This method is called when the command is run.
 	 */
 	public void run() {
@@ -102,7 +104,6 @@ public class FluovoltAnalysis implements Command {
 	 * @param outputpath is the path to the output folder to create the csv and graphs
 	 * @param path is the path to the folder containing the files
 	 */
-
 	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm, String filetype){
 		IJ.log("");
 		IJ.log("Analysis done with parameters :");
@@ -113,9 +114,9 @@ public class FluovoltAnalysis implements Command {
 
 		for (String s : listoffiles){
 			// TODO complete all the functions
-			String[] infos = getinfo(s, filetype); // getting all the informations about the acquisition by it's name
-			String specificoutputpath = outputpath+""; // here create the finaloutput path for each acquisition
-			makefolder(path+"/"+s); // creating the missing subfolders in the output folder
+			String specificoutputpath = getfinalpath(outputpath, s);
+			new File(specificoutputpath).mkdirs();
+
 			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
 			if (Objects.equals(algorithm, "automatic roi fitting")){
 				autoroi(path+"/"+s, specificoutputpath);
@@ -124,6 +125,7 @@ public class FluovoltAnalysis implements Command {
 			} else if (Objects.equals(algorithm, "brut (for 2D images)")){
 				brutanalysis(path+"/"+s, specificoutputpath);
 			}
+
 			// TODO setup a matrix return type for the analysis functions to pass it to the analysis. We can still save the raw data gathered.
 
 			// TODO in my opinion the graphical analysis should be here
@@ -132,20 +134,17 @@ public class FluovoltAnalysis implements Command {
 		}
 	}
 
-	public void makefolder(String fullpath){
-		// TODO the idea here is to cut the full path in pieces and putting it back together while testing if each subfolder exists. when/if it doesn't, create it then go into it and create the next one etc until the end so the save path is good
-	}
-
-	public String[] getinfo (String name, String filetype){
-		// TODO algo to cut the string and get the infos. return everything in the 7 slots String[].
-		// expected experiement_date_day_magnification obj_fluovolt_condition_well.tif
-		String[] result = new String[7]; // experiments should end up in position 0 and well in position 6
-		// things here
-		return result;
+	public String getfinalpath(String outputpath, String name){
+		String[] splittedname = name.split("_");
+		String drug = splittedname[5];
+		String day = splittedname[2];
+		return outputpath+"/"+day+"/"+drug;
 	}
 
 	public void brutanalysis(String filepath, String outputpath){
-		// TODO brut video analysis macro translation
+		imp = IJ.openImage(filepath);
+		IJ.run(imp, "Measure", "");
+
 		resultsave(outputpath);
 	}
 
@@ -161,6 +160,7 @@ public class FluovoltAnalysis implements Command {
 
 	public void resultsave(String outputpath){
 		// TODO general function to take the results and save them as csv and make a plot
+		// also return a matrix
 	}
 
 	/**
@@ -232,6 +232,7 @@ public class FluovoltAnalysis implements Command {
 		}
 		return filelist;
 	}
+
 	/**
 	 * This main function serves for development purposes.
 	 * It allows you to run the plugin immediately out of
@@ -240,8 +241,6 @@ public class FluovoltAnalysis implements Command {
 	 * @param args whatever, it's ignored
 	 * @throws Exception whatever it's doing
 	 */
-
-
 	// LANCE IMAGEJ POUR TESTER LE PLUGIN
 	public static void main(final String... args) throws Exception {
 		final ImageJ ij = new ImageJ();
