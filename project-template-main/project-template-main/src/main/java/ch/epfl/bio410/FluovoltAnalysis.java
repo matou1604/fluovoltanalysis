@@ -20,7 +20,6 @@ public class FluovoltAnalysis implements Command {
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
 
-
     /**
 	 * This method is called when the command is run.
 	 */
@@ -72,7 +71,6 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	/**
-	 * algo2D algo3D variables are used to choose the algorithm for each file type
 	 * @param folder folder is the path to the folder containing the tif files
 	 * @param output is used to save the analysis function results, and is passed to it
 	 * @param filetype is used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
@@ -87,12 +85,12 @@ public class FluovoltAnalysis implements Command {
         if (filetype.contains("2D")){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "2D");
-			analyze(folder, output, filteredlist, algo2D);
+			analyze(folder, output, filteredlist, algo2D, "2D");
 		}
 		if (filetype.contains("3D")){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "3D");
-			analyze(folder, output, filteredlist, algo3D);
+			analyze(folder, output, filteredlist, algo3D, "3D");
 		}
 	}
 
@@ -104,7 +102,8 @@ public class FluovoltAnalysis implements Command {
 	 * @param outputpath is the path to the output folder to create the csv and graphs
 	 * @param path is the path to the folder containing the files
 	 */
-	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm){
+
+	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm, String filetype){
 		IJ.log("");
 		IJ.log("Analysis done with parameters :");
 		IJ.log("input folder = " + path);
@@ -112,13 +111,57 @@ public class FluovoltAnalysis implements Command {
 		IJ.log("algorithm used = " + algorithm);
 		IJ.log("files analysed :");
 
-		// put the filename printing in the loop to print the filenames only when the analysis is finished
 		for (String s : listoffiles){
-			IJ.log(" - " + s);
+			// TODO complete all the functions
+			String[] infos = getinfo(s, filetype); // getting all the informations about the acquisition by it's name
+			String specificoutputpath = outputpath+""; // here create the finaloutput path for each acquisition
+			makefolder(path+"/"+s); // creating the missing subfolders in the output folder
+			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
+			if (Objects.equals(algorithm, "automatic roi fitting")){
+				autoroi(path+"/"+s, specificoutputpath);
+			} else if (Objects.equals(algorithm, "manual (move ROI)")){
+				manualroi(path+"/"+s, specificoutputpath);
+			} else if (Objects.equals(algorithm, "brut (for 2D images)")){
+				brutanalysis(path+"/"+s, specificoutputpath);
+			}
+			// TODO setup a matrix return type for the analysis functions to pass it to the analysis. We can still save the raw data gathered.
+
+			// TODO in my opinion the graphical analysis should be here
+
+			IJ.log(" - " + s); // the filename prints only when the analysis is done to be able to see which one were done and which doesn't if something goes wrong
 		}
 	}
 
+	public void makefolder(String fullpath){
+		// TODO the idea here is to cut the full path in pieces and putting it back together while testing if each subfolder exists. when/if it doesn't, create it then go into it and create the next one etc until the end so the save path is good
+	}
 
+	public String[] getinfo (String name, String filetype){
+		// TODO algo to cut the string and get the infos. return everything in the 7 slots String[].
+		// expected experiement_date_day_magnification obj_fluovolt_condition_well.tif
+		String[] result = new String[7]; // experiments should end up in position 0 and well in position 6
+		// things here
+		return result;
+	}
+
+	public void brutanalysis(String filepath, String outputpath){
+		// TODO brut video analysis macro translation
+		resultsave(outputpath);
+	}
+
+	public void autoroi(String filepath, String outputpath){
+		// TODO automatic roi macro translation
+		resultsave(outputpath);
+	}
+
+	public void manualroi(String filepath, String outputpath){
+		// TODO manual roi drawing macro translation
+		resultsave(outputpath);
+	}
+
+	public void resultsave(String outputpath){
+		// TODO general function to take the results and save them as csv and make a plot
+	}
 
 	/**
 	 * This function filters the files in the list according to the filetype.
