@@ -3,6 +3,8 @@ package ch.epfl.bio410;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
+import ij.gui.OvalRoi;
+import ij.plugin.ZProjector;
 import net.imagej.ImageJ;
 //import net.imglib2.algorithm.Algorithm;
 import org.scijava.command.Command;
@@ -21,6 +23,7 @@ public class FluovoltAnalysis implements Command {
 	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
 	private ImagePlus imp;
+	private ImagePlus imp2;
 
 	/**
 	 * This method is called when the command is run.
@@ -143,24 +146,74 @@ public class FluovoltAnalysis implements Command {
 
 	public void brutanalysis(String filepath, String outputpath){
 		imp = IJ.openImage(filepath);
-		IJ.run(imp, "Measure", "");
-
-		resultsave(outputpath);
+		int nFrames = imp.getStackSize();
+		for (int i = 1; i <= nFrames; i++) {
+			// Set the current frame
+			imp.setPosition(i);
+			IJ.run(imp, "Measure", "");
+		}
+		resultsave(outputpath, filepath);
 	}
 
 	public void autoroi(String filepath, String outputpath){
-		// TODO automatic roi macro translation
-		resultsave(outputpath);
+		imp = IJ.openImage(filepath);
+		int nFrames = imp.getStackSize();
+
+		// best spot research
+		// variables
+		double dwidth = imp.getWidth();
+		int width = imp.getWidth();
+		int height = imp.getHeight();
+		int radius = (int) Math.round(dwidth/3.36);
+		int bandwidth = radius/5;
+		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
+		int yroom = height-2*bandwidth-2*radius;
+		int step = xroom/50; // divides the remaining space by 50
+		// sum of slices, roi building and measurements
+		imp2 = ZProjector.run(imp, "sum");
+
+		// loop to get the measures
+		for (int x = 0; x < xroom; x=x+step) {
+			for (int y = 0; y < yroom; y=y+step) {
+				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
+				IJ.run("Make Band...", "band="+bandwidth);
+				IJ.run(imp, "Measure", "");
+			}
+		}
+		// accessing the results
+		// TODO get the position of the best fit.
+		// TODO use lower resolution fitting, then refine the fit with smaller steps
+
+		IJ.error("Automatic Roi method not implemented yet");
+		// resultsave(outputpath, filepath);
 	}
 
 	public void manualroi(String filepath, String outputpath){
 		// TODO manual roi drawing macro translation
-		resultsave(outputpath);
+		IJ.error("Manual Roi method not implemented yet");
+		// resultsave(outputpath, filepath);
 	}
 
-	public void resultsave(String outputpath){
+	public void resultsave(String outputpath, String filepath){
 		// TODO general function to take the results and save them as csv and make a plot
-		// also return a matrix
+		String name = getthename(filepath);
+		// creating the file name
+		name = "rawresults_"+name+".csv"; // name now contains the name of the csv file
+		outputpath = outputpath+"/"+name;
+		IJ.saveAs("Results", outputpath);
+		IJ.run("Close", "Results");
+		// also return a matrix, don't know if i have to read
+	}
+
+	/*
+	gets the file name without extension from a path
+	 */
+	public String getthename(String path){
+		//extracting the file name without extension
+		String name = path.split("\\.")[0];
+		String[] splitname = name.split("_");
+		name = splitname[splitname.length-1];
+		return name;
 	}
 
 	/**
