@@ -6,16 +6,13 @@ import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
 import ij.plugin.ZProjector;
 import net.imagej.ImageJ;
-//import net.imglib2.algorithm.Algorithm;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
-import java.awt.*;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
-
 
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
@@ -153,7 +150,9 @@ public class FluovoltAnalysis implements Command {
 			imp.setPosition(i);
 			IJ.run(imp, "Measure", "");
 		}
-		resultsave(outputpath, filepath);
+		String savename = savename(outputpath, filepath, "rawresults");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
 	}
@@ -161,7 +160,6 @@ public class FluovoltAnalysis implements Command {
 	public void autoroi(String filepath, String outputpath){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
-
 		// best spot research
 		// variables
 		double dwidth = imp.getWidth();
@@ -171,45 +169,79 @@ public class FluovoltAnalysis implements Command {
 		int bandwidth = radius/5;
 		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
 		int yroom = height-2*bandwidth-2*radius;
-		int step = xroom/50; // divides the remaining space by 50
+		int step = xroom/10; // divides the remaining space by 10
 		// sum of slices, roi building and measurements
 		ImagePlus imp2 = ZProjector.run(imp, "sum");
-
+		imp2.show();
 		// loop to get the measures
-		for (int x = 0; x < xroom; x=x+step) {
-			for (int y = 0; y < yroom; y=y+step) {
+		for (int y = 0; y < yroom; y=y+step) {
+			for (int x = 0; x < xroom; x=x+step) {
 				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
 				IJ.run("Make Band...", "band="+bandwidth);
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		imp2.close();
+		String savename = savename(outputpath, filepath, "searchresults");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
 		// accessing the results
-		// TODO get the position of the best fit.
-		// TODO use lower resolution fitting, then refine the fit with smaller steps
+		csvanalysis res = new csvanalysis(savename);
+		res.print();
+		int index = res.bestmeannumber();
+		int besty = index/10;
+		int bestx = index - besty*10;
+		besty = besty*step;
+		bestx = bestx*step;
 
-		// IJ.error("Automatic Roi method not implemented yet");
-		// resultsave(outputpath, filepath);
+		// AJUSTEMENT
+		step = step/4;
+		for (int y = 0; y < 5*step; y=y+step) {
+			for (int x = 0; x < 5*step; x=x+step) {
+				imp2.setRoi(new OvalRoi(bestx+bandwidth+x-2*step,besty+bandwidth+y-2*step,2*radius,2*radius));
+				IJ.run(imp2, "Make Band...", "band="+bandwidth);
+				IJ.run(imp2, "Measure", "");
+			}
+		}
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
+		res = new csvanalysis(savename);
+		index = res.bestmeannumber();
+		int corry = index/5;
+		int corrx = index - corry*5;
+		imp2.close();
+		int finalx = bestx+(corrx-2)*step;
+		int finaly = besty+(corry-2)*step;
+		// mesure
+		imp.show();
+		for (int i = 1; i <= nFrames; i++) {
+			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+			IJ.run("Make Band...", "band="+bandwidth);
+			imp.setPosition(i);
+			IJ.run(imp, "Measure", "");
+		}
+		savename = savename(outputpath, filepath, "rawresults");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
 		imp.close();
+		IJ.run("Close All");
 	}
 
 	public void manualroi(String filepath, String outputpath){
 		// TODO manual roi drawing macro translation
 		ImagePlus imp = IJ.openImage(filepath);
 		// IJ.error("Manual Roi method not implemented yet");
-		// resultsave(outputpath, filepath);
+//		String savename = savename(outputpath, filepath, "rawresults");
+//		IJ.saveAs("Results", savename);
+//		IJ.run("Close", "Results");
 		imp.close();
 	}
 
-	public void resultsave(String outputpath, String filepath){
-		// TODO general function to take the results and save them as csv and make a plot
+	public String savename(String outputpath, String filepath, String complement){
 		String name = getthename(filepath);
 		// creating the file name
-		name = "rawresults_"+name+".csv"; // name now contains the name of the csv file
+		name = complement+"_"+name+".csv"; // name now contains the name of the csv file
 		outputpath = outputpath+"/"+name;
-		IJ.saveAs("Results", outputpath);
-		IJ.run("Close", "Results");
-		// also return a matrix, don't know if i have to read
+		return outputpath; // full path name included
 	}
 
 	/*
