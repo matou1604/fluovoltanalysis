@@ -20,7 +20,8 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] choices = {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"};
+	String[] choices_2D = {"manual (choose ROI)", "brut (whole image)"};
+	String[] choices_3D = {"automatic roi fitting", "manual (choose ROI)", "brut (whole image)"};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
 	private ImagePlus imp;
 	private ImagePlus imp2;
@@ -44,8 +45,8 @@ public class FluovoltAnalysis implements Command {
 		// Add result path entry
 		dlg.addDirectoryField("Path to save results", resultPath);
 		// Add checkboxes
-		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices, choices.length, 1, choices[0]);
-		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices, choices.length, 1, choices[2]);
+		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices_3D, choices_3D.length, 1, choices_3D[0]);
+		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 1, choices_2D[0]);
 		dlg.addRadioButtonGroup("Choose the file types:", filetypechoices, filetypechoices.length, 1, filetypechoices[0]);
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
