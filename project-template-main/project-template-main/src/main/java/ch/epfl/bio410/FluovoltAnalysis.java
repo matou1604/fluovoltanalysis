@@ -9,6 +9,8 @@ import net.imagej.ImageJ;
 //import net.imglib2.algorithm.Algorithm;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
+
+import java.awt.*;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -20,11 +22,10 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] choices_2D = {"manual (choose ROI)", "brut (whole image)"};
-	String[] choices_3D = {"automatic roi fitting", "manual (choose ROI)", "brut (whole image)"};
+	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)"};
+	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
+	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2]};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
-	private ImagePlus imp;
-	private ImagePlus imp2;
 
 	/**
 	 * This method is called when the command is run.
@@ -46,7 +47,7 @@ public class FluovoltAnalysis implements Command {
 		dlg.addDirectoryField("Path to save results", resultPath);
 		// Add checkboxes
 		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices_3D, choices_3D.length, 1, choices_3D[0]);
-		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 1, choices_2D[0]);
+		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 1, choices_2D[1]);
 		dlg.addRadioButtonGroup("Choose the file types:", filetypechoices, filetypechoices.length, 1, filetypechoices[0]);
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
@@ -119,14 +120,14 @@ public class FluovoltAnalysis implements Command {
 		for (String s : listoffiles){
 			// TODO complete all the functions
 			String specificoutputpath = getfinalpath(outputpath, s);
-			new File(specificoutputpath).mkdirs();
+			boolean mkdirs = new File(specificoutputpath).mkdirs();
 
 			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
-			if (Objects.equals(algorithm, "automatic roi fitting")){
+			if (Objects.equals(algorithm, allalgochoices[0])){
 				autoroi(path+"/"+s, specificoutputpath);
-			} else if (Objects.equals(algorithm, "manual (move ROI)")){
+			} else if (Objects.equals(algorithm, allalgochoices[1])){
 				manualroi(path+"/"+s, specificoutputpath);
-			} else if (Objects.equals(algorithm, "brut (for 2D images)")){
+			} else if (Objects.equals(algorithm, allalgochoices[2])){
 				brutanalysis(path+"/"+s, specificoutputpath);
 			}
 
@@ -146,18 +147,19 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void brutanalysis(String filepath, String outputpath){
-		imp = IJ.openImage(filepath);
+		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		for (int i = 1; i <= nFrames; i++) {
-			// Set the current frame
 			imp.setPosition(i);
 			IJ.run(imp, "Measure", "");
 		}
 		resultsave(outputpath, filepath);
+		imp.close();
+		IJ.run("Close All");
 	}
 
 	public void autoroi(String filepath, String outputpath){
-		imp = IJ.openImage(filepath);
+		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 
 		// best spot research
@@ -171,28 +173,32 @@ public class FluovoltAnalysis implements Command {
 		int yroom = height-2*bandwidth-2*radius;
 		int step = xroom/50; // divides the remaining space by 50
 		// sum of slices, roi building and measurements
-		imp2 = ZProjector.run(imp, "sum");
+		ImagePlus imp2 = ZProjector.run(imp, "sum");
 
 		// loop to get the measures
 		for (int x = 0; x < xroom; x=x+step) {
 			for (int y = 0; y < yroom; y=y+step) {
 				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
 				IJ.run("Make Band...", "band="+bandwidth);
-				IJ.run(imp, "Measure", "");
+				IJ.run(imp2, "Measure", "");
 			}
 		}
+		imp2.close();
 		// accessing the results
 		// TODO get the position of the best fit.
 		// TODO use lower resolution fitting, then refine the fit with smaller steps
 
-		IJ.error("Automatic Roi method not implemented yet");
+		// IJ.error("Automatic Roi method not implemented yet");
 		// resultsave(outputpath, filepath);
+		imp.close();
 	}
 
 	public void manualroi(String filepath, String outputpath){
 		// TODO manual roi drawing macro translation
-		IJ.error("Manual Roi method not implemented yet");
+		ImagePlus imp = IJ.openImage(filepath);
+		// IJ.error("Manual Roi method not implemented yet");
 		// resultsave(outputpath, filepath);
+		imp.close();
 	}
 
 	public void resultsave(String outputpath, String filepath){
