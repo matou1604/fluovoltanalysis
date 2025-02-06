@@ -99,13 +99,18 @@
             <id>scijava.public</id>
             <url>https://maven.scijava.org/content/groups/public</url>
         </repository>
+
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
     </repositories>
 
     <properties>
         <package-name>ch.epfl.bio410</package-name>
         <license.licenseName>gpl_v3</license.licenseName>
         <!-- Add the name of the group members as copyright owners -->
-        <license.copyrightOwners>ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland</license.copyrightOwners>
+        <license.copyrightOwners>4Dcell, France</license.copyrightOwners>
     </properties>
 
     <dependencies>
@@ -125,7 +130,6 @@
             <groupId>sc.fiji</groupId>
             <artifactId>Trainable_Segmentation</artifactId>
         </dependency>
-
 
         <!-- Add your dependencies here, following the above structure + <version></version> -->
 

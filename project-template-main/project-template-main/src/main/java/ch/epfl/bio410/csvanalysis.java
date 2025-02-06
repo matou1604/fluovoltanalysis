@@ -1,13 +1,19 @@
 package ch.epfl.bio410;
 import ij.IJ;
+
+import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Arrays;
 import java.util.Scanner; // Import the Scanner class to read text files
+import org.knowm.xchart.*;
+import org.knowm.xchart.style.Styler;
+import java.io.IOException;
 
 public class csvanalysis {
     public String[] data;
     public String[][] resultmatrix;
+    public File file;
     /*
      ABOUT THE MATRIX
      it is meant to store imagej results csvs in a matrix
@@ -19,7 +25,7 @@ public class csvanalysis {
 
     // constructor
     public csvanalysis(String arg) {
-        File file = new File(arg);
+        file = new File(arg);
         Scanner reader = null;
         try {
             reader = new Scanner(file);
@@ -67,5 +73,35 @@ public class csvanalysis {
         }
         return besti;
     }
-    
+
+    public void makechart(String savename){
+        double[] xData = new double[data.length-1];
+        double[] yData = new double[data.length-1];
+        for (int i = 0; i < data.length-1; i++) {
+            xData[i] = Double.parseDouble(resultmatrix[i][0]);
+            yData[i] = Double.parseDouble(resultmatrix[i][2]);
+        }
+        XYChart chart = new XYChartBuilder()
+                .width(800)
+                .height(600)
+                .title("Sample Plot")
+                .xAxisTitle("X-Axis")
+                .yAxisTitle("Y-Axis")
+                .build();
+        chart.getStyler().setChartBackgroundColor(Color.WHITE);
+        chart.getStyler().setChartTitleFont(new Font("Arial", Font.BOLD, 20));
+        chart.getStyler().setChartTitleBoxBorderColor(Color.BLACK);
+        chart.getStyler().setMarkerSize(0);  // Set marker size to 0 to hide the dots
+        chart.addSeries("Mean values", xData, yData);
+        try {
+            BitmapEncoder.saveBitmap(chart, savename, BitmapEncoder.BitmapFormat.PNG);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void del(){
+        boolean delet = file.delete();
+    }
+
 }

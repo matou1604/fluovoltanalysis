@@ -19,7 +19,7 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)"};
+	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)"};
 	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
 	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2]};
 	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
@@ -150,11 +150,14 @@ public class FluovoltAnalysis implements Command {
 			imp.setPosition(i);
 			IJ.run(imp, "Measure", "");
 		}
-		String savename = savename(outputpath, filepath, "rawresults");
+		String savename = savename(outputpath, filepath, "rawresults", "csv");
 		IJ.saveAs("Results", savename);
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
+		csvanalysis res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
 	}
 
 	public void autoroi(String filepath, String outputpath){
@@ -181,7 +184,7 @@ public class FluovoltAnalysis implements Command {
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		String savename = savename(outputpath, filepath, "searchresults");
+		String savename = savename(outputpath, filepath, "searchresults", "csv");
 		IJ.saveAs("Results", savename);
 		IJ.run("Close", "Results");
 		// accessing the results
@@ -192,7 +195,7 @@ public class FluovoltAnalysis implements Command {
 		int bestx = index - besty*10;
 		besty = besty*step;
 		bestx = bestx*step;
-
+		res.del();
 		// AJUSTEMENT
 		step = step/4;
 		for (int y = 0; y < 5*step; y=y+step) {
@@ -219,11 +222,15 @@ public class FluovoltAnalysis implements Command {
 			imp.setPosition(i);
 			IJ.run(imp, "Measure", "");
 		}
-		savename = savename(outputpath, filepath, "rawresults");
+		res.del();
+		savename = savename(outputpath, filepath, "rawresults", "csv");
 		IJ.saveAs("Results", savename);
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
+		res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
 	}
 
 	public void manualroi(String filepath, String outputpath){
@@ -236,10 +243,10 @@ public class FluovoltAnalysis implements Command {
 		imp.close();
 	}
 
-	public String savename(String outputpath, String filepath, String complement){
+	public String savename(String outputpath, String filepath, String complement, String format){
 		String name = getthename(filepath);
 		// creating the file name
-		name = complement+"_"+name+".csv"; // name now contains the name of the csv file
+		name = complement+"_"+name+"."+format; // name now contains the name of the csv file
 		outputpath = outputpath+"/"+name;
 		return outputpath; // full path name included
 	}
@@ -250,7 +257,7 @@ public class FluovoltAnalysis implements Command {
 	public String getthename(String path){
 		//extracting the file name without extension
 		String name = path.split("\\.")[0];
-		String[] splitname = name.split("_");
+		String[] splitname = name.split("/");
 		name = splitname[splitname.length-1];
 		return name;
 	}
