@@ -148,6 +148,8 @@ public class FluovoltAnalysis implements Command {
 		int nFrames = imp.getStackSize();
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setPosition(i);
+			// set measurements
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
 		String savename = savename(outputpath, filepath, "rawresults", "csv");
@@ -181,6 +183,7 @@ public class FluovoltAnalysis implements Command {
 			for (int x = 0; x < xroom; x=x+step) {
 				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
 				IJ.run("Make Band...", "band="+bandwidth);
+				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 				IJ.run(imp2, "Measure", "");
 			}
 		}
@@ -202,6 +205,7 @@ public class FluovoltAnalysis implements Command {
 			for (int x = 0; x < 5*step; x=x+step) {
 				imp2.setRoi(new OvalRoi(bestx+bandwidth+x-2*step,besty+bandwidth+y-2*step,2*radius,2*radius));
 				IJ.run(imp2, "Make Band...", "band="+bandwidth);
+				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 				IJ.run(imp2, "Measure", "");
 			}
 		}
@@ -220,6 +224,7 @@ public class FluovoltAnalysis implements Command {
 			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
 			IJ.run("Make Band...", "band="+bandwidth);
 			imp.setPosition(i);
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
 		res.del();

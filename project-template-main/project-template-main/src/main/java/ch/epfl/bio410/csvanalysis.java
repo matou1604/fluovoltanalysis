@@ -38,13 +38,13 @@ public class csvanalysis {
             data[data.length - 1] = reader.nextLine();
         }
         reader.close();
-
+        int ncols = data[1].split(",").length;
         // construction de la matrice
-        resultmatrix = new String[data.length-1][8]; // data.length-1 is to take out the header
+        resultmatrix = new String[data.length-1][ncols]; // data.length-1 is to take out the header
         for (int i = 0; i < data.length-1; i++) { // starts at 1 to avoid the header
             String[] split = data[i+1].split(",");
             int j = 0;
-            while (j < 8) {
+            while (j < ncols) {
                 resultmatrix[i][j] = split[j];
                 j++;
             }
