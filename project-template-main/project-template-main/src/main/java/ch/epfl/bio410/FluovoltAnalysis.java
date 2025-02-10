@@ -23,9 +23,9 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)"};
+	String[] allalgochoices = {"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)", "automatic roi improved"};
 	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
-	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2]};
+	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2], allalgochoices[3]};
 	String[] filetypechoices = {"2D", "3D"};
 	String[] headings = {
 			"Analyse 2D images:      ",
@@ -162,12 +162,9 @@ public class FluovoltAnalysis implements Command {
 				manualroi(path+"/"+s, specificoutputpath);
 			} else if (Objects.equals(algorithm, allalgochoices[2])){
 				brutanalysis(path+"/"+s, specificoutputpath);
+			} else if (Objects.equals(algorithm, allalgochoices[3])){
+				autoimp(path+"/"+s, specificoutputpath);
 			}
-
-			// TODO setup a matrix return type for the analysis functions to pass it to the analysis. We can still save the raw data gathered.
-
-			// TODO in my opinion the graphical analysis should be here
-
 			IJ.log(" - " + s); // the filename prints only when the analysis is done to be able to see which one were done and which doesn't if something goes wrong
 		}
 	}
@@ -199,6 +196,82 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void autoroi(String filepath, String outputpath){
+		ImagePlus imp = IJ.openImage(filepath);
+		int nFrames = imp.getStackSize();
+		// best spot research
+		// variables
+		double dwidth = imp.getWidth();
+		int width = imp.getWidth();
+		int height = imp.getHeight();
+		int radius = (int) Math.round(dwidth/3.36);
+		int bandwidth = radius/5;
+		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
+		int yroom = height-2*bandwidth-2*radius;
+		int step = xroom/10; // divides the remaining space by 10
+		// sum of slices, roi building and measurements
+		ImagePlus imp2 = ZProjector.run(imp, "sum");
+		imp2.show();
+		// loop to get the measures
+		for (int y = 0; y < yroom; y=y+step) {
+			for (int x = 0; x < xroom; x=x+step) {
+				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
+				IJ.run("Make Band...", "band="+bandwidth);
+				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
+				IJ.run(imp2, "Measure", "");
+			}
+		}
+		String savename = savename(outputpath, filepath, "searchresults", "csv");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
+		// accessing the results
+		csvanalysis res = new csvanalysis(savename);
+		res.print();
+		int index = res.bestmeannumber();
+		int besty = index/10;
+		int bestx = index - besty*10;
+		besty = besty*step;
+		bestx = bestx*step;
+		res.del();
+		// AJUSTEMENT
+		step = step/4;
+		for (int y = 0; y < 5*step; y=y+step) {
+			for (int x = 0; x < 5*step; x=x+step) {
+				imp2.setRoi(new OvalRoi(bestx+bandwidth+x-2*step,besty+bandwidth+y-2*step,2*radius,2*radius));
+				IJ.run(imp2, "Make Band...", "band="+bandwidth);
+				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
+				IJ.run(imp2, "Measure", "");
+			}
+		}
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
+		res = new csvanalysis(savename);
+		index = res.bestmeannumber();
+		int corry = index/5;
+		int corrx = index - corry*5;
+		imp2.close();
+		int finalx = bestx+(corrx-2)*step;
+		int finaly = besty+(corry-2)*step;
+		// mesure
+		imp.show();
+		for (int i = 1; i <= nFrames; i++) {
+			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+			IJ.run("Make Band...", "band="+bandwidth);
+			imp.setPosition(i);
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
+			IJ.run(imp, "Measure", "");
+		}
+		res.del();
+		savename = savename(outputpath, filepath, "rawresults", "csv");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
+		imp.close();
+		IJ.run("Close All");
+		res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
+	}
+
+	public void autoimp(String filepath, String outputpath){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
