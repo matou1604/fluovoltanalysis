@@ -1,6 +1,5 @@
 package ch.epfl.bio410;
 
-import ij.gui.*;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
@@ -10,8 +9,6 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
-import java.awt.*;
-import java.awt.event.ItemListener;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -49,13 +46,12 @@ public class FluovoltAnalysis implements Command {
 		dlg.addDirectoryField("Path to images", folderPath);
 		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
-		dlg.addToSameRow();
+		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("Same as path to images", true);
 
 		dlg.addMessage(" ");
 		dlg.setInsets(10,25,0);
-		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, false}, headings);
-
+		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, true}, headings);
 
 		dlg.setInsets(10,20,0);
 		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 2, choices_2D[1]);
@@ -88,17 +84,14 @@ public class FluovoltAnalysis implements Command {
 		// Get the selected values
 		String algo2D = dlg.getNextRadioButton();
         String algo3D = dlg.getNextRadioButton();
+
         boolean image2D = dlg.getNextBoolean();
 		boolean image3D = dlg.getNextBoolean();
+		if (!image2D && !image3D){
+			IJ.error("You must select at least one type of image to analyse");
+			return;
+		}
 
-		// create the filetype string
-		String filetype = "";
-		if (image2D){
-			filetype = filetype + "2D";
-		}
-		if (image3D){
-			filetype = filetype + "3D";
-		}
 
 		// Log selection
 		IJ.log("Path to images: " + folderPath);
@@ -106,29 +99,30 @@ public class FluovoltAnalysis implements Command {
 		IJ.log("Selected algorithms: algo3D = " + algo3D + ", algo2D = " + algo2D);
 
 		//////////////////////////////// FILE ANALYSIS //////////////////////////////////
-		runanalysis(folderPath, resultPath, filetype, algo2D, algo3D);
+		runanalysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D);
 
 	}
 
 	/**
 	 * @param folder folder is the path to the folder containing the tif files
 	 * @param output is used to save the analysis function results, and is passed to it
-	 * @param filetype is used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
+	 * @param analysis2D and
+	 * @param analysis3D are booleans used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
 	 * @param algo2D is the algorithm used to analyse 2D acquisitions
 	 * @param algo3D is the algorithm used to analyse 3D acquisitions
 	 */
-	public void runanalysis(String folder, String output, String filetype, String algo2D, String algo3D){
+	public void runanalysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D){
 		// récupération de la liste de fichiers dans le dossier input
         String[] filelist = listfiles(folderPath);
         // liste des fichiers tiff pertinents
         String[] filteredlist;
-        if (filetype.contains("2D")){
+        if (analysis2D){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "2D");
 			analyze(folder, output, filteredlist, algo2D, "2D");
 		}
-		if (filetype.contains("3D")){
-			// tri des noms de fichiers 2D
+		if (analysis3D){
+			// tri des noms de fichiers 3D
 			filteredlist = filterfiles(filelist, "3D");
 			analyze(folder, output, filteredlist, algo3D, "3D");
 		}
@@ -254,7 +248,7 @@ public class FluovoltAnalysis implements Command {
 		imp2.close();
 		int finalx = bestx+(corrx-2)*step;
 		int finaly = besty+(corry-2)*step;
-		// mesure
+		// measure
 		imp.show();
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
