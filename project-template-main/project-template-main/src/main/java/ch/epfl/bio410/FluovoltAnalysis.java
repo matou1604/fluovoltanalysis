@@ -1,5 +1,6 @@
 package ch.epfl.bio410;
 
+import ij.gui.*;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
@@ -9,10 +10,13 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
+import java.awt.*;
+import java.awt.event.ItemListener;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
+
 
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
@@ -22,7 +26,10 @@ public class FluovoltAnalysis implements Command {
 	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)"};
 	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
 	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2]};
-	String[] filetypechoices = {"2D and 3D", "3D", "2D"};
+	String[] filetypechoices = {"2D", "3D"};
+	String[] headings = {
+			"Analyse 2D images:      ",
+			"Analyse 3D images:"};
 
 	/**
 	 * This method is called when the command is run.
@@ -31,43 +38,72 @@ public class FluovoltAnalysis implements Command {
 
 		//////////////////////////////// DIALOG //////////////////////////////////
 		GenericDialog dlg = new GenericDialog("Fluovolt Analysis");
-
-		// Interface building
 		// Add text explanation
+		dlg.setInsets(10,20,0);
 		dlg.addMessage("Welcome to our Plugin! " +
 				"\nPlease provide a folder with all TIFFs of one condition to analyse and this plugin will do the following. " +
 				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
-				"\nResults will given as 3 csvs.");
+				"\nResults will given as 3 CSVs.");
 		// Add path entry
+		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to images", folderPath);
-		// Add result path entry
+		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
-		// Add checkboxes
+		dlg.addToSameRow();
+		dlg.addCheckbox("Same as path to images", true);
+
+		dlg.addMessage(" ");
+		dlg.setInsets(10,25,0);
+		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, false}, headings);
+
+
+		dlg.setInsets(10,20,0);
+		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 2, choices_2D[1]);
+		dlg.setInsets(10,20,0);
 		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices_3D, choices_3D.length, 1, choices_3D[0]);
-		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 1, choices_2D[1]);
-		dlg.addRadioButtonGroup("Choose the file types:", filetypechoices, filetypechoices.length, 1, filetypechoices[0]);
+
+		//Panel panel3D = new Panel(new GridLayout(3, 1));
+		//dlg.addPanel(panel3D); // Use GridBagConstraints
+		//panel3D.setEnabled(false); // Initially disable 3D panel
+		//dlg.addToSameRow();
+
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
 		dlg.addMessage("Note: nomenclature SHOULD be the following:"+
-				"\n experiement_date_day_magnification obj_fluovolt_condition_well.tif"+
+				"\n experiment_date_day_magnification obj_fluovolt_condition_well.tif"+
 				"\n Example: AK11_070125_D15_20x obj_fluovolt_Basal1_E3d.tif");
+
 		dlg.showDialog();
 		if (dlg.wasCanceled()) return;
+
 
 		// Get interface values
 		// Get the selected paths
 		folderPath = dlg.getNextString();
-		resultPath = dlg.getNextString();
+		if (dlg.getNextBoolean()){
+			resultPath = folderPath;
+		} else {
+			resultPath = dlg.getNextString();
+		}
 		// Get the selected values
-		String algo3D = dlg.getNextRadioButton();
-        String algo2D = dlg.getNextRadioButton();
-        String filetype = dlg.getNextRadioButton();
+		String algo2D = dlg.getNextRadioButton();
+        String algo3D = dlg.getNextRadioButton();
+        boolean image2D = dlg.getNextBoolean();
+		boolean image3D = dlg.getNextBoolean();
+
+		// create the filetype string
+		String filetype = "";
+		if (image2D){
+			filetype = filetype + "2D";
+		}
+		if (image3D){
+			filetype = filetype + "3D";
+		}
 
 		// Log selection
 		IJ.log("Path to images: " + folderPath);
 		IJ.log("Path to save results: " + resultPath);
 		IJ.log("Selected algorithms: algo3D = " + algo3D + ", algo2D = " + algo2D);
-
 
 		//////////////////////////////// FILE ANALYSIS //////////////////////////////////
 		runanalysis(folderPath, resultPath, filetype, algo2D, algo3D);
