@@ -4,6 +4,8 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
+import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.plugin.ZProjector;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
@@ -13,6 +15,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
+import ij.plugin.frame.RoiManager;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
@@ -20,7 +23,7 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)"};
+	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)"};
 	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
 	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2]};
 	String[] filetypechoices = {"2D", "3D"};
@@ -269,14 +272,44 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void manualroi(String filepath, String outputpath){
-		// TODO manual roi drawing macro translation
 		ImagePlus imp = IJ.openImage(filepath);
-		// IJ.error("Manual Roi method not implemented yet");
-//		String savename = savename(outputpath, filepath, "rawresults");
-//		IJ.saveAs("Results", savename);
-//		IJ.run("Close", "Results");
+		imp.show();
+		int nFrames = imp.getStackSize();
+		double dwidth = imp.getWidth();
+		int radius = (int) Math.round(dwidth/3.36);
+		int bandwidth = radius/5;
+		// making roi
+		IJ.setTool("oval");
+		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK").show();
+		IJ.run("Make Band...", "band="+bandwidth);
+		// get roi on image
+		RoiManager rm = new RoiManager();
+		Roi roi = imp.getRoi();
+		//roi.setPosition(0);
+		rm.addRoi(roi);
+		rm.select(0);
+		rm.save(outputpath+"/roi.roi");
+		IJ.run("Close");
+
+		//IJ.run("ROI Manager...", "");
+		rm.open(outputpath+"/roi.roi");
+		rm.select(0);
+		IJ.run("Set Measurements...", "area mean min redirect=None decimal=3");
+		for (int i = 1; i <= nFrames; i++) {
+			imp.setPosition(i);
+			IJ.run(imp, "Measure", "");
+		}
+		String savename = savename(outputpath, filepath, "rawresults", "csv");
+		IJ.saveAs("Results", savename);
+
+		IJ.run("Close", "Results");
 		imp.close();
+		IJ.run("Close All");
+		csvanalysis res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
 	}
+
 
 	public String savename(String outputpath, String filepath, String complement, String format){
 		String name = getthename(filepath);
