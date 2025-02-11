@@ -1,21 +1,21 @@
 package ch.epfl.bio410;
 
-import ij.gui.*;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
+import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.plugin.ZProjector;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
-import java.awt.*;
-import java.awt.event.ItemListener;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
+import ij.plugin.frame.RoiManager;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
@@ -23,7 +23,7 @@ public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
 	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] allalgochoices = {"automatic roi fitting", "manual (choose ROI) (not working)", "brut (whole image)", "automatic roi improved"};
+	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)", "automatic roi improved"};
 	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
 	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2], allalgochoices[3]};
 	String[] filetypechoices = {"2D", "3D"};
@@ -49,13 +49,12 @@ public class FluovoltAnalysis implements Command {
 		dlg.addDirectoryField("Path to images", folderPath);
 		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
-		dlg.addToSameRow();
+		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("Same as path to images", true);
 
 		dlg.addMessage(" ");
 		dlg.setInsets(10,25,0);
-		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, false}, headings);
-
+		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, true}, headings);
 
 		dlg.setInsets(10,20,0);
 		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 2, choices_2D[1]);
@@ -88,17 +87,14 @@ public class FluovoltAnalysis implements Command {
 		// Get the selected values
 		String algo2D = dlg.getNextRadioButton();
         String algo3D = dlg.getNextRadioButton();
+
         boolean image2D = dlg.getNextBoolean();
 		boolean image3D = dlg.getNextBoolean();
+		if (!image2D && !image3D){
+			IJ.error("You must select at least one type of image to analyse");
+			return;
+		}
 
-		// create the filetype string
-		String filetype = "";
-		if (image2D){
-			filetype = filetype + "2D";
-		}
-		if (image3D){
-			filetype = filetype + "3D";
-		}
 
 		// Log selection
 		IJ.log("Path to images: " + folderPath);
@@ -106,29 +102,30 @@ public class FluovoltAnalysis implements Command {
 		IJ.log("Selected algorithms: algo3D = " + algo3D + ", algo2D = " + algo2D);
 
 		//////////////////////////////// FILE ANALYSIS //////////////////////////////////
-		runanalysis(folderPath, resultPath, filetype, algo2D, algo3D);
+		runanalysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D);
 
 	}
 
 	/**
 	 * @param folder folder is the path to the folder containing the tif files
 	 * @param output is used to save the analysis function results, and is passed to it
-	 * @param filetype is used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
+	 * @param analysis2D and
+	 * @param analysis3D are booleans used to choose to analyse the files corresponding to the nomenclature for 3D and/or 2D acquisitions
 	 * @param algo2D is the algorithm used to analyse 2D acquisitions
 	 * @param algo3D is the algorithm used to analyse 3D acquisitions
 	 */
-	public void runanalysis(String folder, String output, String filetype, String algo2D, String algo3D){
+	public void runanalysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D){
 		// récupération de la liste de fichiers dans le dossier input
         String[] filelist = listfiles(folderPath);
         // liste des fichiers tiff pertinents
         String[] filteredlist;
-        if (filetype.contains("2D")){
+        if (analysis2D){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "2D");
 			analyze(folder, output, filteredlist, algo2D, "2D");
 		}
-		if (filetype.contains("3D")){
-			// tri des noms de fichiers 2D
+		if (analysis3D){
+			// tri des noms de fichiers 3D
 			filteredlist = filterfiles(filelist, "3D");
 			analyze(folder, output, filteredlist, algo3D, "3D");
 		}
@@ -251,7 +248,7 @@ public class FluovoltAnalysis implements Command {
 		imp2.close();
 		int finalx = bestx+(corrx-2)*step;
 		int finaly = besty+(corry-2)*step;
-		// mesure
+		// measure
 		imp.show();
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
@@ -348,14 +345,39 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void manualroi(String filepath, String outputpath){
-		// TODO manual roi drawing macro translation
 		ImagePlus imp = IJ.openImage(filepath);
-		// IJ.error("Manual Roi method not implemented yet");
-//		String savename = savename(outputpath, filepath, "rawresults");
-//		IJ.saveAs("Results", savename);
-//		IJ.run("Close", "Results");
+		imp.show();
+		int nFrames = imp.getStackSize();
+		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n " +
+								   "\nNOTE: If you want to make a circular ring, " +
+								   "\nmake an inner circle using the oval tool, " +
+								   "\nthen use the command 'Edit > Selection > Make band(~40)'").show();
+		// get roi on image
+		RoiManager rm = new RoiManager();
+		Roi roi = imp.getRoi();
+		roi.setPosition(0);
+		rm.addRoi(roi);
+		rm.select(0);
+		//rm.save(outputpath+"/roi.roi");
+		//IJ.run("ROI Manager...", "");
+		//rm.open(outputpath+"/roi.roi");
+		for (int i = 1; i <= nFrames; i++) {
+			imp.setPosition(i);
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
+			IJ.run(imp, "Measure", "");
+		}
+		String savename = savename(outputpath, filepath, "rawresults", "csv");
+		IJ.saveAs("Results", savename);
+
+		IJ.run("Close", "Results");
 		imp.close();
+		IJ.run("Close All");
+		rm.close(); // close roi manager window
+		csvanalysis res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
 	}
+
 
 	public String savename(String outputpath, String filepath, String complement, String format){
 		String name = getthename(filepath);
