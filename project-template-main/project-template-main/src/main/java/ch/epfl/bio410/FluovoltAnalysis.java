@@ -275,28 +275,21 @@ public class FluovoltAnalysis implements Command {
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
-		double dwidth = imp.getWidth();
-		int radius = (int) Math.round(dwidth/3.36);
-		int bandwidth = radius/5;
-		// making roi
-		IJ.setTool("oval");
-		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK").show();
-		IJ.run("Make Band...", "band="+bandwidth);
+		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n \nNOTE: If you want to make a circular ring, " +
+				"\nmake an inner circle using the oval tool, " +
+				"\nthen use the command 'Edit > Selection > Make band(~40)'").show();
 		// get roi on image
 		RoiManager rm = new RoiManager();
 		Roi roi = imp.getRoi();
-		//roi.setPosition(0);
+		roi.setPosition(0);
 		rm.addRoi(roi);
 		rm.select(0);
-		rm.save(outputpath+"/roi.roi");
-		IJ.run("Close");
-
+		//rm.save(outputpath+"/roi.roi");
 		//IJ.run("ROI Manager...", "");
-		rm.open(outputpath+"/roi.roi");
-		rm.select(0);
-		IJ.run("Set Measurements...", "area mean min redirect=None decimal=3");
+		//rm.open(outputpath+"/roi.roi");
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setPosition(i);
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
 		String savename = savename(outputpath, filepath, "rawresults", "csv");
@@ -305,6 +298,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
+		rm.close(); // close roi manager window
 		csvanalysis res = new csvanalysis(savename);
 		savename = savename(outputpath, filepath, "rawplot", "png");
 		res.makechart(savename);
