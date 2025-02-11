@@ -451,11 +451,10 @@ public class FluovoltAnalysis implements Command {
 			filtered = Arrays.copyOf(filtered, filtered.length + 1); // à chaque itération refait une place dans l'array
 			filtered[filtered.length - 1] = s;
 
-			//if no tiffs, error message
-			if (filtered.length == 0){
-				IJ.error("No tiff files found in the folder");
-
-			}
+		}
+		//if no tiffs, error message
+		if (filtered.length == 0) {
+			IJ.error("No tiff files found in the folder");
 		}
 		return filtered;
 	}
