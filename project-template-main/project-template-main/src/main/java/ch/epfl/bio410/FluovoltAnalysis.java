@@ -275,9 +275,10 @@ public class FluovoltAnalysis implements Command {
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
-		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n \nNOTE: If you want to make a circular ring, " +
-				"\nmake an inner circle using the oval tool, " +
-				"\nthen use the command 'Edit > Selection > Make band(~40)'").show();
+		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n " +
+								   "\nNOTE: If you want to make a circular ring, " +
+								   "\nmake an inner circle using the oval tool, " +
+								   "\nthen use the command 'Edit > Selection > Make band(~40)'").show();
 		// get roi on image
 		RoiManager rm = new RoiManager();
 		Roi roi = imp.getRoi();
