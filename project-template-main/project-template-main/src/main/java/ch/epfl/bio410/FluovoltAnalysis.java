@@ -250,9 +250,15 @@ public class FluovoltAnalysis implements Command {
 		int finaly = besty+(corry-2)*step;
 		// measure
 		imp.show();
+		imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+		IJ.run("Make Band...", "band="+bandwidth);
+		// add to roi manager
+		RoiManager rm = new RoiManager();
+		Roi roi = imp.getRoi();
+		roi.setPosition(0);
+		rm.addRoi(roi);
+		rm.select(0);
 		for (int i = 1; i <= nFrames; i++) {
-			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
-			IJ.run("Make Band...", "band="+bandwidth);
 			imp.setPosition(i);
 			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
@@ -263,6 +269,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
+		rm.close(); // close roi manager window
 		res = new csvanalysis(savename);
 		savename = savename(outputpath, filepath, "rawplot", "png");
 		res.makechart(savename);
@@ -443,6 +450,12 @@ public class FluovoltAnalysis implements Command {
 			}
 			filtered = Arrays.copyOf(filtered, filtered.length + 1); // à chaque itération refait une place dans l'array
 			filtered[filtered.length - 1] = s;
+
+			//if no tiffs, error message
+			if (filtered.length == 0){
+				IJ.error("No tiff files found in the folder");
+
+			}
 		}
 		return filtered;
 	}
