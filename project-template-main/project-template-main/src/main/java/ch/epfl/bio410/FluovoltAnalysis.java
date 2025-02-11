@@ -47,6 +47,8 @@ public class FluovoltAnalysis implements Command {
 		// Add path entry
 		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to images", folderPath);
+		dlg.setInsets(1,150,0);
+		dlg.addCheckbox("All folders in folder", false);
 		dlg.setInsets(10,25,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
 		dlg.setInsets(1,150,0);
@@ -65,6 +67,8 @@ public class FluovoltAnalysis implements Command {
 		//dlg.addPanel(panel3D); // Use GridBagConstraints
 		//panel3D.setEnabled(false); // Initially disable 3D panel
 		//dlg.addToSameRow();
+		dlg.setInsets(20,20,0);
+		dlg.addNumericField("Radius divider for ring band forming:", 4, 0); //TODO: add a numeric field for intenal?
 
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
@@ -79,6 +83,7 @@ public class FluovoltAnalysis implements Command {
 		// Get interface values
 		// Get the selected paths
 		folderPath = dlg.getNextString();
+		boolean all_folders = dlg.getNextBoolean();
 		if (dlg.getNextBoolean()){
 			resultPath = folderPath;
 		} else {
@@ -94,7 +99,7 @@ public class FluovoltAnalysis implements Command {
 			IJ.error("You must select at least one type of image to analyse");
 			return;
 		}
-
+		double radius_divider = dlg.getNextNumber();
 
 		// Log selection
 		IJ.log("Path to images: " + folderPath);
@@ -102,8 +107,25 @@ public class FluovoltAnalysis implements Command {
 		IJ.log("Selected algorithms: algo3D = " + algo3D + ", algo2D = " + algo2D);
 
 		//////////////////////////////// FILE ANALYSIS //////////////////////////////////
-		runanalysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D);
 
+		// if given folder contains all conditions, run the analysis on all subfolders
+		if (all_folders){
+			// get the big folder
+			File big_folder = new File(folderPath);
+			// get all subfolders
+			File[] folders = big_folder.listFiles();
+			if (folders != null) {
+				for (File folder : folders) {
+					if (folder.isDirectory()) {
+						String subfolder = folder.getAbsolutePath();
+						// print only subfolder name not path, splitting with backslash, not slash
+						IJ.log("Analyzing folder: " + subfolder.split("\\\\")[subfolder.split("\\\\").length-1]);
+						IJ.log(subfolder);
+						runanalysis(subfolder, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
+					} //else IJ.log("Skipping non-directory file: " + folder.getAbsolutePath());
+				}
+			} else IJ.error("No subfolders found in the directory: " + folderPath);
+		} else runanalysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
 	}
 
 	/**
@@ -114,20 +136,24 @@ public class FluovoltAnalysis implements Command {
 	 * @param algo2D is the algorithm used to analyse 2D acquisitions
 	 * @param algo3D is the algorithm used to analyse 3D acquisitions
 	 */
-	public void runanalysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D){
+	public void runanalysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D, double radius_divider){
+
 		// récupération de la liste de fichiers dans le dossier input
-        String[] filelist = listfiles(folderPath);
-        // liste des fichiers tiff pertinents
+        String[] filelist = listfiles(folder); // folderpath was written here!!!)
+		IJ.log("FOUND : " + filelist.length);
+		// liste des fichiers tiff pertinents
         String[] filteredlist;
         if (analysis2D){
 			// tri des noms de fichiers 2D
 			filteredlist = filterfiles(filelist, "2D");
-			analyze(folder, output, filteredlist, algo2D, "2D");
+			IJ.log("2D files found : " + filteredlist.length);
+			analyze(folder, output, filteredlist, algo2D, "2D", radius_divider);
 		}
 		if (analysis3D){
 			// tri des noms de fichiers 3D
 			filteredlist = filterfiles(filelist, "3D");
-			analyze(folder, output, filteredlist, algo3D, "3D");
+			IJ.log("3D files found : " + filteredlist.length);
+			analyze(folder, output, filteredlist, algo3D, "3D", radius_divider);
 		}
 	}
 
@@ -139,7 +165,7 @@ public class FluovoltAnalysis implements Command {
 	 * @param outputpath is the path to the output folder to create the csv and graphs
 	 * @param path is the path to the folder containing the files
 	 */
-	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm, String filetype){
+	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm, String filetype, double radius_divider){
 		IJ.log("");
 		IJ.log("Analysis done with parameters :");
 		IJ.log("input folder = " + path);
@@ -154,7 +180,7 @@ public class FluovoltAnalysis implements Command {
 
 			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
 			if (Objects.equals(algorithm, allalgochoices[0])){
-				autoroi(path+"/"+s, specificoutputpath);
+				autoroi(path+"/"+s, specificoutputpath, radius_divider);
 			} else if (Objects.equals(algorithm, allalgochoices[1])){
 				manualroi(path+"/"+s, specificoutputpath);
 			} else if (Objects.equals(algorithm, allalgochoices[2])){
@@ -175,6 +201,7 @@ public class FluovoltAnalysis implements Command {
 
 	public void brutanalysis(String filepath, String outputpath){
 		ImagePlus imp = IJ.openImage(filepath);
+		imp.show();
 		int nFrames = imp.getStackSize();
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setPosition(i);
@@ -192,7 +219,7 @@ public class FluovoltAnalysis implements Command {
 		res.makechart(savename);
 	}
 
-	public void autoroi(String filepath, String outputpath){
+	public void autoroi(String filepath, String outputpath, double radius_divider){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
@@ -201,16 +228,16 @@ public class FluovoltAnalysis implements Command {
 		int width = imp.getWidth();
 		int height = imp.getHeight();
 		int radius = (int) Math.round(dwidth/3.36);
-		int bandwidth = radius/5;
+		int bandwidth = (int) (radius/radius_divider);
 		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
 		int yroom = height-2*bandwidth-2*radius;
-		int step = xroom/10; // divides the remaining space by 10
+		int step = Math.floorDiv(xroom, 10); // divides the remaining space by 10
 		// sum of slices, roi building and measurements
 		ImagePlus imp2 = ZProjector.run(imp, "sum");
 		imp2.show();
 		// loop to get the measures
-		for (int y = 0; y < yroom; y=y+step) {
-			for (int x = 0; x < xroom; x=x+step) {
+		for (int y = 0; y < 10*step; y=y+step) {
+			for (int x = 0; x < 10*step; x=x+step) {
 				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
 				IJ.run("Make Band...", "band="+bandwidth);
 				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
@@ -222,7 +249,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Close", "Results");
 		// accessing the results
 		csvanalysis res = new csvanalysis(savename);
-		res.print();
+		//res.print();
 		int index = res.bestmeannumber();
 		int besty = index/10;
 		int bestx = index - besty*10;
@@ -284,7 +311,7 @@ public class FluovoltAnalysis implements Command {
 		int width = imp.getWidth();
 		int height = imp.getHeight();
 		int radius = (int) Math.round(dwidth/3.36);
-		int bandwidth = radius/5;
+		int bandwidth = radius/4;
 		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
 		int yroom = height-2*bandwidth-2*radius;
 		int step = xroom/10; // divides the remaining space by 10
@@ -305,7 +332,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Close", "Results");
 		// accessing the results
 		csvanalysis res = new csvanalysis(savename);
-		res.print();
+		//res.print();
 		int index = res.bestmeannumber();
 		int besty = index/10;
 		int bestx = index - besty*10;
@@ -452,12 +479,14 @@ public class FluovoltAnalysis implements Command {
 			filtered[filtered.length - 1] = s;
 
 		}
-		//if no tiffs, error message
-		if (filtered.length == 0) {
-			IJ.error("No tiff files found in the folder");
-		}
 		return filtered;
 	}
+//		//if no tiffs, error message
+//		if (filtered.length == 0){
+//			IJ.error("No tiff files found in the folder");
+//		}
+//
+
 
 	public String[] listfiles(String path){
 		/*

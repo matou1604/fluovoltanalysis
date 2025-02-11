@@ -64,7 +64,7 @@ public class csvanalysis {
         int besti = 0;
         double bestvalue = 0.0;
         for (int i = 0; i < data.length-1; i++) {
-            IJ.log(resultmatrix[i][2]); // show means
+            //IJ.log(resultmatrix[i][2]); // show means
             double value = Double.parseDouble(resultmatrix[i][2]);
             if (value>bestvalue){
                 besti = i;
