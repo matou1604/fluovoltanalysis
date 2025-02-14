@@ -45,11 +45,11 @@ public class FluovoltAnalysis implements Command {
 				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
 				"\nResults will given as 3 CSVs.");
 		// Add path entry
-		dlg.setInsets(10,25,0);
+		//dlg.setInsets(10,75,0);
 		dlg.addDirectoryField("Path to images", folderPath);
 		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("All folders in folder", false);
-		dlg.setInsets(10,25,0);
+		//dlg.setInsets(10,75,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
 		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("Same as path to images", true);
@@ -60,7 +60,7 @@ public class FluovoltAnalysis implements Command {
 
 		dlg.setInsets(10,20,0);
 		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 2, choices_2D[1]);
-		dlg.setInsets(10,20,0);
+		dlg.setInsets(20,20,0);
 		dlg.addRadioButtonGroup("Choose a 3D algorithm:", choices_3D, choices_3D.length, 1, choices_3D[0]);
 
 		//Panel panel3D = new Panel(new GridLayout(3, 1));
@@ -68,13 +68,13 @@ public class FluovoltAnalysis implements Command {
 		//panel3D.setEnabled(false); // Initially disable 3D panel
 		//dlg.addToSameRow();
 		dlg.setInsets(20,20,0);
-		dlg.addNumericField("Radius divider for ring band forming:", 4, 0); //TODO: add a numeric field for intenal?
+		dlg.addNumericField("Radius divider for ring band forming, for automatic roi fitting algorithm:", 3.4, 1); //TODO: add a numeric field for intenal?
 
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
 		dlg.addMessage("Note: nomenclature SHOULD be the following:"+
-				"\n experiment_date_day_magnification obj_fluovolt_condition_well.tif"+
-				"\n Example: AK11_070125_D15_20x obj_fluovolt_Basal1_E3d.tif");
+				"\nexperiment_date_day_magnification obj_fluovolt_condition_well.tif"+
+				"\nExample: AK11_070125_D15_20x obj_fluovolt_Basal1_E3d.tif");
 
 		dlg.showDialog();
 		if (dlg.wasCanceled()) return;
@@ -200,6 +200,7 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void brutanalysis(String filepath, String outputpath){
+		IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
@@ -220,6 +221,8 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void autoroi(String filepath, String outputpath, double radius_divider){
+		// if roi manager and results are open, close it
+		IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
@@ -303,6 +306,7 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void autoimp(String filepath, String outputpath){
+		IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
@@ -379,13 +383,17 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void manualroi(String filepath, String outputpath){
+		IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
-		new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n " +
-								   "\nNOTE: If you want to make a circular ring, " +
-								   "\nmake an inner circle using the oval tool, " +
-								   "\nthen use the command 'Edit > Selection > Make band(~40)'").show();
+		WaitForUserDialog dialog = new WaitForUserDialog("Draw ROI", "Draw the ROI, then click OK. \n " +
+				"\nNOTE: If you want to make a circular ring, " +
+				"\nmake an inner circle using the oval tool, " +
+				"\nthen use the command 'Edit > Selection > Make band(~40)'");
+		dialog.setLocation(100, 100);
+		dialog.show();
+
 		// get roi on image
 		RoiManager rm = new RoiManager();
 		Roi roi = imp.getRoi();
