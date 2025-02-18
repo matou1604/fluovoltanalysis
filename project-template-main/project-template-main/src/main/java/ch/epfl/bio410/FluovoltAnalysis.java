@@ -470,17 +470,17 @@ public class FluovoltAnalysis implements Command {
 			} else if (Objects.equals(filetype, "2D")){
 				if (!Conditions[Conditions.length-1].contains("-")){
 					continue;
-				} else if (Conditions[Conditions.length-1].length()!=4){
-					IJ.log(s+" doesn't have the correct coordinates synthax");
-					continue;
+//				} else if (Conditions[Conditions.length-1].length()!=4){
+//					IJ.log(s+" doesn't have the correct coordinates synthax");
+//					continue;
 				}
 			} else if (Objects.equals(filetype, "3D")){
 				if (Conditions[Conditions.length-1].contains("-")){
 					IJ.log(s+" has '-'. this is not expected for 3D smartheart tif file names");
 					continue;
-				} else if (Conditions[Conditions.length-1].length()!=3){
-					IJ.log(s+" doesn't have the correct coordinates synthax (3 characters)");
-					continue;
+//				} else if (Conditions[Conditions.length-1].length()!=3){
+//					IJ.log(s+" doesn't have the correct coordinates synthax (3 characters)");
+//					continue;
 				}
 			}
 			filtered = Arrays.copyOf(filtered, filtered.length + 1); // à chaque itération refait une place dans l'array
