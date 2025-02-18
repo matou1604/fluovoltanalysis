@@ -6,7 +6,9 @@ import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
 import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
+import ij.plugin.ImageCalculator;
 import ij.plugin.ZProjector;
+import ij.process.ImageProcessor;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
@@ -22,10 +24,10 @@ import ij.plugin.frame.RoiManager;
 public class FluovoltAnalysis implements Command {
 
 	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
-	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les résultats
-	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)", "automatic roi improved"};
-	String[] choices_2D = {allalgochoices[1], allalgochoices[2]};
-	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2], allalgochoices[3]};
+	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les resultants
+	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)", "mask (choose threshold)", "combined (automatic roi fitting + mask)"};
+	String[] choices_2D = {allalgochoices[1], allalgochoices[2], allalgochoices[3]};
+	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2], allalgochoices[3], allalgochoices[4]};
 	String[] filetypechoices = {"2D", "3D"};
 	String[] headings = {
 			"Analyse 2D images:      ",
@@ -45,11 +47,11 @@ public class FluovoltAnalysis implements Command {
 				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
 				"\nResults will given as 3 CSVs.");
 		// Add path entry
-		//dlg.setInsets(10,75,0);
+		dlg.setInsets(10,75,0);
 		dlg.addDirectoryField("Path to images", folderPath);
 		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("All folders in folder", false);
-		//dlg.setInsets(10,75,0);
+		dlg.setInsets(10,75,0);
 		dlg.addDirectoryField("Path to save results", resultPath);
 		dlg.setInsets(1,150,0);
 		dlg.addCheckbox("Same as path to images", true);
@@ -68,7 +70,10 @@ public class FluovoltAnalysis implements Command {
 		//panel3D.setEnabled(false); // Initially disable 3D panel
 		//dlg.addToSameRow();
 		dlg.setInsets(20,20,0);
-		dlg.addNumericField("Radius divider for ring band forming, for automatic roi fitting algorithm:", 3.4, 1); //TODO: add a numeric field for intenal?
+		dlg.addNumericField("Radius divider for ring band forming. ", 3.4, 1); 	//TODO: add a numeric field for internal?
+		dlg.setInsets(1,17,0);
+		dlg.addMessage("For automatic roi fitting algorithm. " +
+				"\nThe bigger the number, the smaller the ring thickness.");
 
 		// Add text
 		dlg.addMessage("______________________________________________________________________________");
@@ -185,8 +190,10 @@ public class FluovoltAnalysis implements Command {
 				manualroi(path+"/"+s, specificoutputpath);
 			} else if (Objects.equals(algorithm, allalgochoices[2])){
 				brutanalysis(path+"/"+s, specificoutputpath);
+			} else if (Objects.equals(algorithm, allalgochoices[4])){
+				autoroi_mask(path+"/"+s, specificoutputpath, radius_divider);
 			} else if (Objects.equals(algorithm, allalgochoices[3])){
-				autoimp(path+"/"+s, specificoutputpath);
+				mask(path+"/"+s, specificoutputpath);
 			}
 			IJ.log(" - " + s); // the filename prints only when the analysis is done to be able to see which one were done and which doesn't if something goes wrong
 		}
@@ -200,7 +207,7 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void brutanalysis(String filepath, String outputpath){
-		IJ.run("Close", "Results");
+		//IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
@@ -221,8 +228,6 @@ public class FluovoltAnalysis implements Command {
 	}
 
 	public void autoroi(String filepath, String outputpath, double radius_divider){
-		// if roi manager and results are open, close it
-		IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
@@ -259,7 +264,7 @@ public class FluovoltAnalysis implements Command {
 		besty = besty*step;
 		bestx = bestx*step;
 		res.del();
-		// AJUSTEMENT
+		// ADJUSTMENT
 		step = step/4;
 		for (int y = 0; y < 5*step; y=y+step) {
 			for (int x = 0; x < 5*step; x=x+step) {
@@ -305,26 +310,23 @@ public class FluovoltAnalysis implements Command {
 		res.makechart(savename);
 	}
 
-	public void autoimp(String filepath, String outputpath){
-		IJ.run("Close", "Results");
+	public void autoroi_mask(String filepath, String outputpath, double radius_divider){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
 		// variables
 		double dwidth = imp.getWidth();
 		int width = imp.getWidth();
-		int height = imp.getHeight();
 		int radius = (int) Math.round(dwidth/3.36);
-		int bandwidth = radius/4;
+		int bandwidth = (int) (radius/radius_divider);
 		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
-		int yroom = height-2*bandwidth-2*radius;
-		int step = xroom/10; // divides the remaining space by 10
+		int step = Math.floorDiv(xroom, 10); // divides the remaining space by 10
 		// sum of slices, roi building and measurements
 		ImagePlus imp2 = ZProjector.run(imp, "sum");
 		imp2.show();
 		// loop to get the measures
-		for (int y = 0; y < yroom; y=y+step) {
-			for (int x = 0; x < xroom; x=x+step) {
+		for (int y = 0; y < 10*step; y=y+step) {
+			for (int x = 0; x < 10*step; x=x+step) {
 				imp2.setRoi(new OvalRoi(x+bandwidth,y+bandwidth,2*radius,2*radius));
 				IJ.run("Make Band...", "band="+bandwidth);
 				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
@@ -343,7 +345,7 @@ public class FluovoltAnalysis implements Command {
 		besty = besty*step;
 		bestx = bestx*step;
 		res.del();
-		// AJUSTEMENT
+		// ADJUSTMENT
 		step = step/4;
 		for (int y = 0; y < 5*step; y=y+step) {
 			for (int x = 0; x < 5*step; x=x+step) {
@@ -362,28 +364,55 @@ public class FluovoltAnalysis implements Command {
 		imp2.close();
 		int finalx = bestx+(corrx-2)*step;
 		int finaly = besty+(corry-2)*step;
-		// mesure
+
+		// apply a threshold and save as mask then multiply the mask with the image and measure on this new image
 		imp.show();
+		IJ.run("Options...", "black");
+		// open threshold window image>adjust>threshold
+		IJ.run("Threshold...");
+		new WaitForUserDialog("Check the threshold", "Check the threshold, then click OK.").show();
+		IJ.run(imp, "Convert to Mask", "");  // Convert to mask using the adjusted threshold
+		//IJ.run(imp, "Convert to Mask", "method=MaxEntropy background=Dark create calculate");  // TODO: FIIIIX
+		ImagePlus mask = IJ.getImage();
+		IJ.run(mask, "Divide...", "value=255 stack");
+		mask.show();
+
+		ImagePlus result = ImageCalculator.run(imp, mask, "Multiply create stack");
+		result.show();
+
+		// measure
+		result.show();
+		result.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+		IJ.run("Make Band...", "band="+bandwidth);
+		// add to roi manager
+		RoiManager rm = new RoiManager();
+		Roi roi = result.getRoi();
+		roi.setPosition(0);
+		rm.addRoi(roi);
+		rm.select(0);
+
+		ImageProcessor ip = result.getProcessor();
+		ip.setThreshold(1, 65535, ImageProcessor.BLACK_AND_WHITE_LUT);
+
 		for (int i = 1; i <= nFrames; i++) {
-			imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
-			IJ.run("Make Band...", "band="+bandwidth);
-			imp.setPosition(i);
-			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
-			IJ.run(imp, "Measure", "");
+			result.setPosition(i);
+			IJ.run(result, "Set Measurements...", "mean area min limit redirect=None decimal=3");
+			IJ.run(result, "Measure", "");
 		}
 		res.del();
 		savename = savename(outputpath, filepath, "rawresults", "csv");
 		IJ.saveAs("Results", savename);
 		IJ.run("Close", "Results");
-		imp.close();
 		IJ.run("Close All");
+		rm.close(); // close roi manager window
 		res = new csvanalysis(savename);
 		savename = savename(outputpath, filepath, "rawplot", "png");
 		res.makechart(savename);
 	}
 
+
 	public void manualroi(String filepath, String outputpath){
-		IJ.run("Close", "Results");
+		//IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
@@ -419,6 +448,46 @@ public class FluovoltAnalysis implements Command {
 		savename = savename(outputpath, filepath, "rawplot", "png");
 		res.makechart(savename);
 	}
+
+
+	public void mask(String filepath, String outputpath){
+		ImagePlus imp = IJ.openImage(filepath);
+		imp.show();
+		int nFrames = imp.getStackSize();
+
+		IJ.run("Options...", "black");
+		IJ.run("Threshold...");
+
+		new WaitForUserDialog("Check the threshold", "Choose the threshold, then click OK.").show();
+		IJ.run(imp, "Convert to Mask", "background=Dark create calculate"); //TODO: FIIIX so we can modify threshold
+		ImagePlus mask = IJ.getImage();
+		IJ.run(mask, "Divide...", "value=255 stack");
+		mask.show();
+
+		ImagePlus result = ImageCalculator.run(imp, mask, "Multiply create stack");
+		result.show();
+
+		// measure
+		ImageProcessor ip = result.getProcessor();
+		ip.setThreshold(1, 65535, ImageProcessor.BLACK_AND_WHITE_LUT);
+
+		for (int i = 1; i <= nFrames; i++) {
+			imp.setPosition(i);
+			// set measurements
+			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
+			IJ.run(imp, "Measure", "");
+		}
+
+		String savename = savename(outputpath, filepath, "rawresults", "csv");
+		IJ.saveAs("Results", savename);
+		IJ.run("Close", "Results");
+		imp.close();
+		IJ.run("Close All");
+		csvanalysis res = new csvanalysis(savename);
+		savename = savename(outputpath, filepath, "rawplot", "png");
+		res.makechart(savename);
+	}
+
 
 
 	public String savename(String outputpath, String filepath, String complement, String format){
