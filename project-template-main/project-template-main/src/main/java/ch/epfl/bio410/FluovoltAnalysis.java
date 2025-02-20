@@ -493,7 +493,8 @@ public class FluovoltAnalysis implements Command {
 	public String savename(String outputpath, String filepath, String complement, String format){
 		String name = getthename(filepath);
 		// creating the file name
-		name = complement+"_"+name+"."+format; // name now contains the name of the csv file
+		//name = complement+"_"+name+"."+format; // name now contains the name of the csv file TODO: change this of you want a prefix
+		name = name+"."+format;
 		outputpath = outputpath+"/"+name;
 		return outputpath; // full path name included
 	}
