@@ -23,12 +23,12 @@ import ij.plugin.frame.RoiManager;
 @Plugin(type = Command.class, menuPath = "Plugins>4Dcell>Fluovolt Analysis")
 public class FluovoltAnalysis implements Command {
 
-	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // dossier à analyser
-	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// dossier de sorties pour les resultants
-	String[] allalgochoices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)", "mask (choose threshold)", "combined (automatic roi fitting + mask)"};
-	String[] choices_2D = {allalgochoices[1], allalgochoices[2], allalgochoices[3]};
-	String[] choices_3D = {allalgochoices[0], allalgochoices[1], allalgochoices[2], allalgochoices[3], allalgochoices[4]};
-	String[] filetypechoices = {"2D", "3D"};
+	private String folderPath = Paths.get(System.getProperty("user.home")).toString(); // folder to analyse
+	private String resultPath = Paths.get(System.getProperty("user.home")).toString();// output folder for results
+	String[] all_algo_choices ={"automatic roi fitting", "manual (choose ROI)", "brut (whole image)", "mask (choose threshold)", "combined (automatic roi fitting + mask)"};
+	String[] choices_2D = {all_algo_choices[1], all_algo_choices[2], all_algo_choices[3]};
+	String[] choices_3D = {all_algo_choices[0], all_algo_choices[1], all_algo_choices[2], all_algo_choices[3], all_algo_choices[4]};
+	String[] filetype_choices = {"2D", "3D"};
 	String[] headings = {
 			"Analyse 2D images:      ",
 			"Analyse 3D images:"};
@@ -58,7 +58,7 @@ public class FluovoltAnalysis implements Command {
 
 		dlg.addMessage(" ");
 		dlg.setInsets(10,25,0);
-		dlg.addCheckboxGroup(1, 2, filetypechoices, new boolean[]{false, true}, headings);
+		dlg.addCheckboxGroup(1, 2, filetype_choices, new boolean[]{false, true}, headings);
 
 		dlg.setInsets(10,20,0);
 		dlg.addRadioButtonGroup("Choose a 2D algorithm:", choices_2D, choices_2D.length, 2, choices_2D[1]);
@@ -126,12 +126,13 @@ public class FluovoltAnalysis implements Command {
 						// print only subfolder name not path, splitting with backslash, not slash
 						IJ.log("Analyzing folder: " + subfolder.split("\\\\")[subfolder.split("\\\\").length-1]);
 						IJ.log(subfolder);
-						runanalysis(subfolder, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
+						run_analysis(subfolder, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
 					} //else IJ.log("Skipping non-directory file: " + folder.getAbsolutePath());
 				}
 			} else IJ.error("No subfolders found in the directory: " + folderPath);
-		} else runanalysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
+		} else run_analysis(folderPath, resultPath, image2D, image3D, algo2D, algo3D, radius_divider);
 	}
+
 
 	/**
 	 * @param folder folder is the path to the folder containing the tif files
@@ -141,72 +142,86 @@ public class FluovoltAnalysis implements Command {
 	 * @param algo2D is the algorithm used to analyse 2D acquisitions
 	 * @param algo3D is the algorithm used to analyse 3D acquisitions
 	 */
-	public void runanalysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D, double radius_divider){
+	public void run_analysis(String folder, String output, boolean analysis2D, boolean analysis3D, String algo2D, String algo3D, double radius_divider){
 
-		// récupération de la liste de fichiers dans le dossier input
-        String[] filelist = listfiles(folder); // folderpath was written here!!!)
-		IJ.log("FOUND : " + filelist.length);
-		// liste des fichiers tiff pertinents
-        String[] filteredlist;
+		// // retrieving the list of files in the input folder
+        String[] file_list = list_files(folder); // folder_path was written here!!!)
+		IJ.log("FOUND : " + file_list.length);
+		// list of usable files
+        String[] filtered_list;
         if (analysis2D){
-			// tri des noms de fichiers 2D
-			filteredlist = filterfiles(filelist, "2D");
-			IJ.log("2D files found : " + filteredlist.length);
-			analyze(folder, output, filteredlist, algo2D, "2D", radius_divider);
+			// filtering names of 2D files
+			filtered_list = filter_files(file_list, "2D");
+			IJ.log("2D files found : " + filtered_list.length);
+			analyze(folder, output, filtered_list, algo2D, radius_divider);
 		}
 		if (analysis3D){
-			// tri des noms de fichiers 3D
-			filteredlist = filterfiles(filelist, "3D");
-			IJ.log("3D files found : " + filteredlist.length);
-			analyze(folder, output, filteredlist, algo3D, "3D", radius_divider);
+			// filtering names of 3D files
+			filtered_list = filter_files(file_list, "3D");
+			IJ.log("3D files found : " + filtered_list.length);
+			analyze(folder, output, filtered_list, algo3D, radius_divider);
 		}
 	}
 
+
+
 	/**
-	 * this function runs the adequate macro (selected with the algorithm string) on a listoffiles
-	 * the folder to iterate in is specified in path and the output folder is in outputpath
-	 * @param listoffiles is the list of files to analyze
+	 * this function runs the adequate macro (selected with the algorithm string) on a list_of-files
+	 * the folder to iterate in is specified in path and the output folder is in output_path
+	 * @param list_of_files is the list of files to analyze
 	 * @param algorithm is which macro algorithm to use
-	 * @param outputpath is the path to the output folder to create the csv and graphs
+	 * @param output_path is the path to the output folder to create the csv and graphs
 	 * @param path is the path to the folder containing the files
 	 */
-	public void analyze(String path, String outputpath, String[] listoffiles, String algorithm, String filetype, double radius_divider){
+	public void analyze(String path, String output_path, String[] list_of_files, String algorithm, double radius_divider){
 		IJ.log("");
 		IJ.log("Analysis done with parameters :");
 		IJ.log("input folder = " + path);
-		IJ.log("output folder = " + outputpath);
+		IJ.log("output folder = " + output_path);
 		IJ.log("algorithm used = " + algorithm);
 		IJ.log("files analysed :");
 
-		for (String s : listoffiles){
+		for (String s : list_of_files){
 			// TODO complete all the functions
-			String specificoutputpath = getfinalpath(outputpath, s);
-			boolean mkdirs = new File(specificoutputpath).mkdirs();
+			String specific_output_path = get_final_path(output_path, s);
+			//boolean mk_dirs = new File(specific_output_path).mkdirs();
 
 			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
-			if (Objects.equals(algorithm, allalgochoices[0])){
-				autoroi(path+"/"+s, specificoutputpath, radius_divider);
-			} else if (Objects.equals(algorithm, allalgochoices[1])){
-				manualroi(path+"/"+s, specificoutputpath);
-			} else if (Objects.equals(algorithm, allalgochoices[2])){
-				brutanalysis(path+"/"+s, specificoutputpath);
-			} else if (Objects.equals(algorithm, allalgochoices[4])){
-				autoroi_mask(path+"/"+s, specificoutputpath, radius_divider);
-			} else if (Objects.equals(algorithm, allalgochoices[3])){
-				mask(path+"/"+s, specificoutputpath);
+			if (Objects.equals(algorithm, all_algo_choices[0])){
+				auto_roi(path+"/"+s, specific_output_path, radius_divider);
+			} else if (Objects.equals(algorithm, all_algo_choices[1])){
+				manual_roi(path+"/"+s, specific_output_path);
+			} else if (Objects.equals(algorithm, all_algo_choices[2])){
+				brut_analysis(path+"/"+s, specific_output_path);
+			} else if (Objects.equals(algorithm, all_algo_choices[4])){
+				auto_roi_mask(path+"/"+s, specific_output_path, radius_divider);
+			} else if (Objects.equals(algorithm, all_algo_choices[3])){
+				mask(path+"/"+s, specific_output_path);
 			}
 			IJ.log(" - " + s); // the filename prints only when the analysis is done to be able to see which one were done and which doesn't if something goes wrong
 		}
 	}
 
-	public String getfinalpath(String outputpath, String name){
-		String[] splittedname = name.split("_");
-		String drug = splittedname[5];
-		String day = splittedname[2];
-		return outputpath+"/"+day+"/"+drug;
+	/**
+	 * This function creates the final path for the output files
+	 * @param output_path is the path to the output folder
+	 * @param name is the name of the file
+	 * @return the final path for the output files
+	 */
+	public String get_final_path(String output_path, String name){
+		String[] split_name = name.split("_");
+		String drug = split_name[5];
+		String day = split_name[2];
+		return output_path+"/"+day+"/"+drug;
 	}
 
-	public void brutanalysis(String filepath, String outputpath){
+
+	/**
+	 * This function analyses the raw signal of the whole image
+	 * @param filepath is the path to the file
+	 * @param output_path is the path to the output folder
+	 */
+	public void brut_analysis(String filepath, String output_path){
 		//IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
@@ -217,29 +232,30 @@ public class FluovoltAnalysis implements Command {
 			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
-		String savename = savename(outputpath, filepath, "rawresults", "csv");
-		IJ.saveAs("Results", savename);
+		String save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
-		csvanalysis res = new csvanalysis(savename);
-		savename = savename(outputpath, filepath, "rawplot", "png");
-		res.makechart(savename);
+		csvanalysis res = new csvanalysis(save_name);
+		save_name = save_name(output_path, filepath, "raw-plot", "png", Boolean.TRUE);
+		res.makechart(save_name);
 	}
 
-	public void autoroi(String filepath, String outputpath, double radius_divider){
+
+	public void auto_roi(String filepath, String output_path, double radius_divider){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
 		// variables
-		double dwidth = imp.getWidth();
+		double d_width = imp.getWidth();
 		int width = imp.getWidth();
-		int height = imp.getHeight();
-		int radius = (int) Math.round(dwidth/3.36);
+		// int height = imp.getHeight();
+		int radius = (int) Math.round(d_width/3.36);
 		int bandwidth = (int) (radius/radius_divider);
-		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
-		int yroom = height-2*bandwidth-2*radius;
-		int step = Math.floorDiv(xroom, 10); // divides the remaining space by 10
+		int x_room = width-2*bandwidth-2*radius; // how much room for the final roi
+		//int y_room = height-2*bandwidth-2*radius;
+		int step = Math.floorDiv(x_room, 10); // divides the remaining space by 10
 		// sum of slices, roi building and measurements
 		ImagePlus imp2 = ZProjector.run(imp, "sum");
 		imp2.show();
@@ -252,40 +268,40 @@ public class FluovoltAnalysis implements Command {
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		String savename = savename(outputpath, filepath, "searchresults", "csv");
-		IJ.saveAs("Results", savename);
+		String save_name = save_name(output_path, filepath, "search-results", "csv", Boolean.TRUE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		// accessing the results
-		csvanalysis res = new csvanalysis(savename);
+		csvanalysis res = new csvanalysis(save_name);
 		//res.print();
 		int index = res.bestmeannumber();
-		int besty = index/10;
-		int bestx = index - besty*10;
-		besty = besty*step;
-		bestx = bestx*step;
+		int best_y = index/10;
+		int best_x = index - best_y*10;
+		best_y = best_y*step;
+		best_x = best_x*step;
 		res.del();
 		// ADJUSTMENT
 		step = step/4;
 		for (int y = 0; y < 5*step; y=y+step) {
 			for (int x = 0; x < 5*step; x=x+step) {
-				imp2.setRoi(new OvalRoi(bestx+bandwidth+x-2*step,besty+bandwidth+y-2*step,2*radius,2*radius));
+				imp2.setRoi(new OvalRoi(best_x+bandwidth+x-2*step,best_y+bandwidth+y-2*step,2*radius,2*radius));
 				IJ.run(imp2, "Make Band...", "band="+bandwidth);
 				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		IJ.saveAs("Results", savename);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
-		res = new csvanalysis(savename);
+		res = new csvanalysis(save_name);
 		index = res.bestmeannumber();
-		int corry = index/5;
-		int corrx = index - corry*5;
+		int corr_y = index/5;
+		int corr_x = index - corr_y*5;
 		imp2.close();
-		int finalx = bestx+(corrx-2)*step;
-		int finaly = besty+(corry-2)*step;
+		int final_x = best_x+(corr_x-2)*step;
+		int final_y = best_y+(corr_y-2)*step;
 		// measure
 		imp.show();
-		imp.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+		imp.setRoi(new OvalRoi(final_x+bandwidth,final_y+bandwidth,2*radius,2*radius));
 		IJ.run("Make Band...", "band="+bandwidth);
 		// add to roi manager
 		RoiManager rm = new RoiManager();
@@ -299,28 +315,29 @@ public class FluovoltAnalysis implements Command {
 			IJ.run(imp, "Measure", "");
 		}
 		res.del();
-		savename = savename(outputpath, filepath, "rawresults", "csv");
-		IJ.saveAs("Results", savename);
+		save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
 		rm.close(); // close roi manager window
-		res = new csvanalysis(savename);
-		savename = savename(outputpath, filepath, "rawplot", "png");
-		res.makechart(savename);
+		res = new csvanalysis(save_name);
+		save_name = save_name(output_path, filepath, "raw-plot", "png", Boolean.TRUE);
+		res.makechart(save_name);
 	}
 
-	public void autoroi_mask(String filepath, String outputpath, double radius_divider){
+
+
+	public void auto_roi_mask(String filepath, String output_path, double radius_divider){
 		ImagePlus imp = IJ.openImage(filepath);
 		int nFrames = imp.getStackSize();
 		// best spot research
-		// variables
-		double dwidth = imp.getWidth();
+		double d_width = imp.getWidth();
 		int width = imp.getWidth();
-		int radius = (int) Math.round(dwidth/3.36);
+		int radius = (int) Math.round(d_width/3.36);
 		int bandwidth = (int) (radius/radius_divider);
-		int xroom = width-2*bandwidth-2*radius; // how much room for the final roi
-		int step = Math.floorDiv(xroom, 10); // divides the remaining space by 10
+		int x_room = width-2*bandwidth-2*radius; // how much room for the final roi
+		int step = Math.floorDiv(x_room, 10); // divides the remaining space by 10
 		// sum of slices, roi building and measurements
 		ImagePlus imp2 = ZProjector.run(imp, "sum");
 		imp2.show();
@@ -333,37 +350,37 @@ public class FluovoltAnalysis implements Command {
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		String savename = savename(outputpath, filepath, "searchresults", "csv");
-		IJ.saveAs("Results", savename);
+		String save_name = save_name(output_path, filepath, "search-results", "csv", Boolean.TRUE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		// accessing the results
-		csvanalysis res = new csvanalysis(savename);
+		csvanalysis res = new csvanalysis(save_name);
 		//res.print();
 		int index = res.bestmeannumber();
-		int besty = index/10;
-		int bestx = index - besty*10;
-		besty = besty*step;
-		bestx = bestx*step;
+		int best_y = index/10;
+		int best_x = index - best_y*10;
+		best_y = best_y*step;
+		best_x = best_x*step;
 		res.del();
 		// ADJUSTMENT
 		step = step/4;
 		for (int y = 0; y < 5*step; y=y+step) {
 			for (int x = 0; x < 5*step; x=x+step) {
-				imp2.setRoi(new OvalRoi(bestx+bandwidth+x-2*step,besty+bandwidth+y-2*step,2*radius,2*radius));
+				imp2.setRoi(new OvalRoi(best_x+bandwidth+x-2*step,best_y+bandwidth+y-2*step,2*radius,2*radius));
 				IJ.run(imp2, "Make Band...", "band="+bandwidth);
 				IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 				IJ.run(imp2, "Measure", "");
 			}
 		}
-		IJ.saveAs("Results", savename);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
-		res = new csvanalysis(savename);
+		res = new csvanalysis(save_name);
 		index = res.bestmeannumber();
-		int corry = index/5;
-		int corrx = index - corry*5;
+		int corr_y = index/5;
+		int corr_x = index - corr_y*5;
 		imp2.close();
-		int finalx = bestx+(corrx-2)*step;
-		int finaly = besty+(corry-2)*step;
+		int final_x = best_x+(corr_x-2)*step;
+		int final_y = best_y+(corr_y-2)*step;
 
 		// apply a threshold and save as mask then multiply the mask with the image and measure on this new image
 		imp.show();
@@ -372,7 +389,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Threshold...");
 		new WaitForUserDialog("Check the threshold", "Check the threshold, then click OK.").show();
 		IJ.run(imp, "Convert to Mask", "");  // Convert to mask using the adjusted threshold
-		//IJ.run(imp, "Convert to Mask", "method=MaxEntropy background=Dark create calculate");  // TODO: FIIIIX
+		//IJ.run(imp, "Convert to Mask", "method=MaxEntropy background=Dark create calculate");  // TODO: FIX
 		ImagePlus mask = IJ.getImage();
 		IJ.run(mask, "Divide...", "value=255 stack");
 		mask.show();
@@ -382,7 +399,7 @@ public class FluovoltAnalysis implements Command {
 
 		// measure
 		result.show();
-		result.setRoi(new OvalRoi(finalx+bandwidth,finaly+bandwidth,2*radius,2*radius));
+		result.setRoi(new OvalRoi(final_x+bandwidth,final_y+bandwidth,2*radius,2*radius));
 		IJ.run("Make Band...", "band="+bandwidth);
 		// add to roi manager
 		RoiManager rm = new RoiManager();
@@ -400,18 +417,18 @@ public class FluovoltAnalysis implements Command {
 			IJ.run(result, "Measure", "");
 		}
 		res.del();
-		savename = savename(outputpath, filepath, "rawresults", "csv");
-		IJ.saveAs("Results", savename);
+		save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		IJ.run("Close All");
 		rm.close(); // close roi manager window
-		res = new csvanalysis(savename);
-		savename = savename(outputpath, filepath, "rawplot", "png");
-		res.makechart(savename);
+		res = new csvanalysis(save_name);
+		save_name = save_name(output_path, filepath, "raw-plot", "png", Boolean.TRUE);
+		res.makechart(save_name);
 	}
 
 
-	public void manualroi(String filepath, String outputpath){
+	public void manual_roi(String filepath, String output_path){
 		//IJ.run("Close", "Results");
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
@@ -429,28 +446,30 @@ public class FluovoltAnalysis implements Command {
 		roi.setPosition(0);
 		rm.addRoi(roi);
 		rm.select(0);
-		//rm.save(outputpath+"/roi.roi");
+		//rm.save(output_path+"/roi.roi");
 		//IJ.run("ROI Manager...", "");
-		//rm.open(outputpath+"/roi.roi");
+		//rm.open(output_path+"/roi.roi");
 		for (int i = 1; i <= nFrames; i++) {
 			imp.setPosition(i);
 			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
-		String savename = savename(outputpath, filepath, "rawresults", "csv");
-		IJ.saveAs("Results", savename);
+		String save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
+		IJ.saveAs("Results", save_name);
 
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
 		rm.close(); // close roi manager window
-		csvanalysis res = new csvanalysis(savename);
-		savename = savename(outputpath, filepath, "rawplot", "png");
-		res.makechart(savename);
+		csvanalysis res = new csvanalysis(save_name);
+		save_name = save_name(output_path, filepath, "raw-plot", "png", Boolean.TRUE);
+		res.makechart(save_name);
 	}
 
+// write a definition to this function
 
-	public void mask(String filepath, String outputpath){
+
+	public void mask(String filepath, String output_path){
 		ImagePlus imp = IJ.openImage(filepath);
 		imp.show();
 		int nFrames = imp.getStackSize();
@@ -459,7 +478,7 @@ public class FluovoltAnalysis implements Command {
 		IJ.run("Threshold...");
 
 		new WaitForUserDialog("Check the threshold", "Choose the threshold, then click OK.").show();
-		IJ.run(imp, "Convert to Mask", "background=Dark create calculate"); //TODO: FIIIX so we can modify threshold
+		IJ.run(imp, "Convert to Mask", "background=Dark create calculate"); //TODO: FIX so we can modify threshold
 		ImagePlus mask = IJ.getImage();
 		IJ.run(mask, "Divide...", "value=255 stack");
 		mask.show();
@@ -478,35 +497,47 @@ public class FluovoltAnalysis implements Command {
 			IJ.run(imp, "Measure", "");
 		}
 
-		String savename = savename(outputpath, filepath, "rawresults", "csv");
-		IJ.saveAs("Results", savename);
+		String save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
+		IJ.saveAs("Results", save_name);
 		IJ.run("Close", "Results");
 		imp.close();
 		IJ.run("Close All");
-		csvanalysis res = new csvanalysis(savename);
-		savename = savename(outputpath, filepath, "rawplot", "png");
-		res.makechart(savename);
+		csvanalysis res = new csvanalysis(save_name);
+		save_name = save_name(output_path, filepath, "raw-plot", "png", Boolean.TRUE);
+		res.makechart(save_name);
 	}
 
 
-
-	public String savename(String outputpath, String filepath, String complement, String format){
-		String name = getthename(filepath);
-		// creating the file name
-		//name = complement+"_"+name+"."+format; // name now contains the name of the csv file TODO: change this of you want a prefix
-		name = name+"."+format;
-		outputpath = outputpath+"/"+name;
-		return outputpath; // full path name included
-	}
-
-	/*
-	gets the file name without extension from a path
+	/**
+	 * This function creates the full path name for the output file
+	 * @param output_path is the path to the output folder
+	 * @param filepath is the path to the file
+	 * @param complement is the complement to add to the name
+	 * @param format is the format of the file
+	 * @param add_prefix is a boolean to add the complement as a prefix or not
+	 * @return the full path name for the output file
 	 */
-	public String getthename(String path){
+	public String save_name(String output_path, String filepath, String complement, String format, Boolean add_prefix){
+		String name = get_name(filepath);
+		// creating the file name
+		if (add_prefix){
+			name = complement+"_"+name+"."+format;} // name now contains the name of the csv file
+		else{
+			name = name+"."+format;}
+		output_path = output_path+"/"+name;
+		return output_path; // full path name included
+	}
+
+	/**
+	 * This function extracts the name of the file without the extension
+	 * @param path is the path to the file
+	 * @return the name of the file without the extension
+	 */
+	public String get_name(String path){
 		//extracting the file name without extension
 		String name = path.split("\\.")[0];
-		String[] splitname = name.split("/");
-		name = splitname[splitname.length-1];
+		String[] split_name = name.split("/");
+		name = split_name[split_name.length-1];
 		return name;
 	}
 
@@ -522,69 +553,59 @@ public class FluovoltAnalysis implements Command {
 	 * @param filetype is the expected filetype (used to choose which nomenclature to research)
 	 * @return filtered list of only TIFF files
 	 */
-	public String[] filterfiles(String[] list, String filetype){
+	public String[] filter_files(String[] list, String filetype){
 
 		String[] filtered = new String[0]; // the result array containing the valid filenames at the end of the function
 		String name; // to get the file name without extension, used in the loop
 		IJ.log("");
 		IJ.log("Sorting files...");
-		// d'abord les critères communs à tous les fichiers :
+		// first the common criteria for all files
 		for (String s : list) {
-			if (!s.contains(".")){ // si le fichier n'est pas un fichier (n'a pas d'extension)
+			if (!s.contains(".")){ // if the file isn't a file (doesn't have an extension)
 				continue;
 			}
 			name = s.split("\\.")[0];
 			String[] Conditions = name.split("_");
-			if (!s.contains("tif")){ // si le fichier n'est pas un tif
+			if (!s.contains("tif")){ // if file is not a tif
 				continue;
 			} else if (Objects.equals(filetype, "2D")){
 				if (!Conditions[Conditions.length-1].contains("-")){
 					continue;
-//				} else if (Conditions[Conditions.length-1].length()!=4){
-//					IJ.log(s+" doesn't have the correct coordinates synthax");
-//					continue;
 				}
 			} else if (Objects.equals(filetype, "3D")){
 				if (Conditions[Conditions.length-1].contains("-")){
 					IJ.log(s+" has '-'. this is not expected for 3D smartheart tif file names");
 					continue;
-//				} else if (Conditions[Conditions.length-1].length()!=3){
-//					IJ.log(s+" doesn't have the correct coordinates synthax (3 characters)");
-//					continue;
 				}
 			}
-			filtered = Arrays.copyOf(filtered, filtered.length + 1); // à chaque itération refait une place dans l'array
+			filtered = Arrays.copyOf(filtered, filtered.length + 1); // in each iteration, it makes space in the array.
 			filtered[filtered.length - 1] = s;
 
 		}
 		return filtered;
 	}
-//		//if no tiffs, error message
-//		if (filtered.length == 0){
-//			IJ.error("No tiff files found in the folder");
-//		}
-//
+		//if no tiffs, error message
+		//if (filtered.length == 0){IJ.error("No tiff files found in the folder");}
 
+	/**
+	 * This function lists the files in a folder.
+	 * @param path is the path to the folder
+	 * @return the array of files in the folder, of variable length
+	 */
+	public String[] list_files(String path){
+		File folder = new File(path);
+		File[] files = folder.listFiles(); // retrieves the file names using the method from the File class
+		String[] file_list = new String[0]; // output
 
-	public String[] listfiles(String path){
-		/*
-		prend le chemin du dossier en entrée
-		renvoie un array de strings taille variable contenant les noms des fichiers à l'intérieur
-		*/
-
-		File folder = new File(path);      // crée un objet de type File ?
-		File[] files = folder.listFiles(); // récupère les noms de fichiers avec la méthode de la classe File ?
-		String[] filelist = new String[0]; // sortie
-
-		if (files != null) { // si y'a des fichiers dans le dossier
-			for (File file : files) { // loop dans les fichiers ?
-				filelist = Arrays.copyOf(filelist, filelist.length + 1); // à chaque itération refait une place dans l'array
-				filelist[filelist.length - 1] = file.getName();  // ajoute le nouveau fichier
+		if (files != null) { // if there are files in the folder
+			for (File file : files) { // loop through the files
+				file_list = Arrays.copyOf(file_list, file_list.length + 1); // In each iteration, it makes space in the array.
+				file_list[file_list.length - 1] = file.getName();  // adds the new file name to the array
 			}
 		} else {
-			IJ.log("The directory is empty or does not exist."); // quand il n'y a pas de fichier log le message dans imagej
+			IJ.log("The directory is empty or does not exist."); // when there are no files in the directory
 		}
-		return filelist;
+		return file_list;
 	}
 
 	/**
@@ -595,9 +616,9 @@ public class FluovoltAnalysis implements Command {
 	 * @param args whatever, it's ignored
 	 * @throws Exception whatever it's doing
 	 */
-	// LANCE IMAGEJ POUR TESTER LE PLUGIN
 	public static void main(final String... args) throws Exception {
 		final ImageJ ij = new ImageJ();
 		ij.ui().showUI();
+
 	}
 }
