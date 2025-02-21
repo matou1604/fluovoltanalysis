@@ -32,7 +32,7 @@ public class FluovoltAnalysis implements Command {
 	String[] headings = {
 			"Analyse 2D images:      ",
 			"Analyse 3D images:"};
-
+	boolean analyze_names = true;
 	/**
 	 * This method is called when the command is run.
 	 */
@@ -183,8 +183,8 @@ public class FluovoltAnalysis implements Command {
 
 		for (String s : list_of_files){
 			// TODO complete all the functions
-			String specific_output_path = get_final_path(output_path, s);
-			//boolean mk_dirs = new File(specific_output_path).mkdirs();
+			String specific_output_path = get_final_path(output_path, s, analyze_names);
+			boolean mk_dirs = new File(specific_output_path).mkdirs();
 
 			// Choosing the algorithm the options are {"automatic roi fitting", "manual (move ROI)", "brut (for 2D images)"}
 			if (Objects.equals(algorithm, all_algo_choices[0])){
@@ -208,11 +208,15 @@ public class FluovoltAnalysis implements Command {
 	 * @param name is the name of the file
 	 * @return the final path for the output files
 	 */
-	public String get_final_path(String output_path, String name){
-		String[] split_name = name.split("_");
-		String drug = split_name[5];
-		String day = split_name[2];
-		return output_path+"/"+day+"/"+drug;
+	public String get_final_path(String output_path, String name, boolean analyze_names){
+		if (analyze_names){
+			String[] split_name = name.split("_");
+			String drug = split_name[5];
+			String day = split_name[2];
+			return output_path+"/"+day+"/"+drug;
+		} else {
+			return output_path;
+		}
 	}
 
 
@@ -314,6 +318,10 @@ public class FluovoltAnalysis implements Command {
 			IJ.run(imp, "Set Measurements...", "mean area min redirect=None decimal=3");
 			IJ.run(imp, "Measure", "");
 		}
+		imp2 = imp.flatten();
+		save_name = save_name(output_path, filepath, "raw-results", "png", Boolean.FALSE);
+		IJ.saveAs(imp2, "PNG", save_name);
+		imp2.close();
 		res.del();
 		save_name = save_name(output_path, filepath, "raw-results", "csv", Boolean.FALSE);
 		IJ.saveAs("Results", save_name);
