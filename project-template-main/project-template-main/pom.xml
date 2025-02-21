@@ -15,7 +15,7 @@
     <artifactId>fluovoltanalyis</artifactId> <!-- Replace the artifact id by your project name -->
     <version>1.0.0-beta</version>
 
-    <name>Project template</name> <!-- Replace the name & description by your project -->
+    <name>Fluovolt Analysis</name> <!-- Replace the name & description by your project -->
     <description>Minimal repository and piece of code to run code and use git/GitLab</description>
     <inceptionYear>2024</inceptionYear>
     <url>https://edu.epfl.ch/coursebook/en/bioimage-informatics-BIO-410</url>
@@ -53,9 +53,16 @@
         <!-- Add the group members as contributors -->
         <contributor>
             <name>Fabien Lebel</name>
-            <roles><role>programmer</role></roles>
+            <roles><role>developer</role></roles>
         </contributor>
     </contributors>
+
+    <mailingLists>
+        <mailingList>
+            <name>Image.sc Forum</name>
+            <archive>https://forum.image.sc/</archive>
+        </mailingList>
+    </mailingLists>
 
     <issueManagement>
         <system>Moodle forum</system>

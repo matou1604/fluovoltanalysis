@@ -44,8 +44,8 @@ public class FluovoltAnalysis implements Command {
 		dlg.setInsets(10,20,0);
 		dlg.addMessage("Welcome to our Plugin! " +
 				"\nPlease provide a folder with all TIFFs of one condition to analyse and this plugin will do the following. " +
-				"\nFirst extract the raw signal from this image, and then analyse this signal to extract valuable parameter. " +
-				"\nResults will given as 3 CSVs.");
+				"\nExtract the raw signal from this image, and then save it as a CSV as well ad a plot of the raw results. " +
+				"\nResults will saved in the provided folder.");
 		// Add path entry
 		dlg.setInsets(10,75,0);
 		dlg.addDirectoryField("Path to images", folderPath);
